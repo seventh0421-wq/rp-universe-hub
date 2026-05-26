@@ -26,14 +26,40 @@ export default function CharacterEditor({ initialData, onSave, onCancel }: Chara
     };
   });
 
-  const [appSettings, setAppSettings] = useState<AppSettings>({
-    themeMode: 'dark',
-    fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-    fontSize: 14,
-    titleColor: '',
-    subtitleColor: '',
-    contentColor: '',
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => {
+    try {
+      const saved = localStorage.getItem('nexus_app_settings');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          themeMode: parsed.themeMode || 'dark',
+          fontFamily: parsed.fontFamily || 'ui-sans-serif, system-ui, sans-serif',
+          fontSize: parsed.fontSize || 14,
+          titleColor: parsed.titleColor || '',
+          subtitleColor: parsed.subtitleColor || '',
+          contentColor: parsed.contentColor || '',
+        };
+      }
+    } catch (e) {
+      console.warn("Could not load appSettings from localStorage:", e);
+    }
+    return {
+      themeMode: 'dark',
+      fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+      fontSize: 14,
+      titleColor: '',
+      subtitleColor: '',
+      contentColor: '',
+    };
   });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('nexus_app_settings', JSON.stringify(appSettings));
+    } catch (e) {
+      console.warn("Could not save appSettings to localStorage:", e);
+    }
+  }, [appSettings]);
 
   const isDark = appSettings.themeMode === 'dark';
 
@@ -218,21 +244,7 @@ ${formData.personality || '尚未填寫...'}
               <button onClick={() => setAppSettings(prev => ({ ...prev, themeMode: 'light' }))} className={`flex-1 py-2 text-sm font-bold transition-colors ${!isDark ? 'bg-slate-200 text-slate-800' : 'bg-transparent hover:bg-slate-800'}`}>淺色</button>
             </div>
           </div>
-          <div>
-            <label className="block text-xs font-bold mb-2 opacity-70">字體風格</label>
-            <select value={appSettings.fontFamily} onChange={(e) => setAppSettings(prev => ({ ...prev, fontFamily: e.target.value }))} className={`w-full p-2.5 rounded border focus:outline-none text-sm ${isDark ? 'bg-slate-800 border-slate-600' : 'bg-white border-slate-300'}`}>
-              <option value="ui-sans-serif, system-ui, sans-serif">預設無襯線體</option>
-              <option value="ui-serif, Georgia, serif">預設襯線體</option>
-              <option value="'Noto Sans TC', sans-serif">思源黑體</option>
-              <option value="'Noto Serif TC', serif">思源明體</option>
-              <option value="'jf-openhuninn', 'M PLUS Rounded 1c', sans-serif">粉圓字體</option>
-              <option value="'Dela Gothic One', sans-serif">Dela Gothic One</option>
-              <option value="'龍藏體', 'Liu Jian Mao Cao', cursive">龍藏體</option>
-              <option value="'Caveat', 'Klee One', 'ChenYuluoyan', cursive">手寫風</option>
-              <option value="'Orbitron', sans-serif">賽博科技 (Orbitron)</option>
-              <option value="'Chakra Petch', sans-serif">機甲終端 (Chakra Petch)</option>
-            </select>
-          </div>
+
           <div>
             <label className="block text-xs font-bold mb-2 opacity-70 flex justify-between"><span>字體大小</span><span>{appSettings.fontSize}px</span></label>
             <input type="range" min="12" max="22" value={appSettings.fontSize} onChange={(e) => setAppSettings(prev => ({ ...prev, fontSize: Number(e.target.value) }))} className="w-full accent-cyan-500" />
