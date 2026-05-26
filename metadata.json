@@ -1,0 +1,6 @@
+{
+  "name": "RP 宇宙 - Universe Hub",
+  "description": "收錄你的 FFXIV 原創角色、CP 設定與世界觀筆記的總控中心以及全景互動關係網",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
