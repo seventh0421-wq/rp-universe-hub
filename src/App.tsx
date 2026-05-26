@@ -86,17 +86,21 @@ export default function App() {
 
   const saveCharacter = (data: Character) => {
     if (editingType === 'npc') {
-      if (data.id && data.id.startsWith('npc_')) {
+      const exists = npcs.some(c => c.id === data.id);
+      if (exists && editingChar) {
         setNpcs(npcs.map(c => c.id === data.id ? data : c));
       } else {
-        setNpcs([...npcs, { ...data, id: `npc_${Date.now()}`, isNPC: true }]);
+        const newId = data.id && data.id.startsWith('npc_') ? data.id : `npc_${Date.now()}`;
+        setNpcs([...npcs, { ...data, id: newId, isNPC: true }]);
       }
     } else {
-      if (data.id && data.id.startsWith('char_')) {
+      const exists = characters.some(c => c.id === data.id);
+      if (exists && editingChar) {
         setCharacters(characters.map(c => c.id === data.id ? data : c));
       } else {
         const isFriend = editingType === 'friend';
-        setCharacters([...characters, { ...data, id: `char_${Date.now()}`, isNPC: false, isImported: isFriend }]);
+        const newId = data.id && data.id.startsWith('char_') ? data.id : `char_${Date.now()}`;
+        setCharacters([...characters, { ...data, id: newId, isNPC: false, isImported: isFriend }]);
       }
     }
     setView('dashboard');
