@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Character, CanvasNode, CanvasEdge } from '../types';
 import { defaultCharacter, getPointerPos, getRadarPoint } from '../constants';
 import localforage from 'localforage';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 
 export function convertOklchToRgbInText(text: string): string {
   const oklchRegex = /oklch\(\s*([0-9.]+%?)[,\s]+([0-9.]+)[,\s]+([0-9.]+)(?:\s*[\/,]\s*([0-9.]+%?))?\s*\)/g;
@@ -253,119 +253,49 @@ export default function NexusCanvas({
     if (!canvasRef.current) return;
     setIsCapturing(true);
     try {
-      // Give time for UI feedback to render
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // Give time for UI feedback to render & let React hide interactive helper buttons from DOM
+      await new Promise(resolve => setTimeout(resolve, 200));
       
-      const runCapture = async (bypassCorsIssues: boolean) => {
-        return await html2canvas(canvasRef.current!, {
-          useCORS: true,
-          allowTaint: false,
-          backgroundColor: '#020617', // Match the main slate-950 canvas background
-          scale: 2, // Capture at 2x scale for higher quality crisp text and images
-          logging: false,
-          onclone: (clonedDoc) => {
-            // Fix OKLCH colors so html2canvas doesn't crash on unrecognized colors in Tailwind v4
-            const defaultView = clonedDoc.defaultView;
-            if (defaultView && defaultView.getComputedStyle) {
-              const originalGetComputedStyle = defaultView.getComputedStyle;
-              defaultView.getComputedStyle = function (elt, pseudoElt) {
-                const style = originalGetComputedStyle.call(this, elt, pseudoElt);
-                return new Proxy(style, {
-                  get(target, prop, receiver) {
-                    if (prop === 'getPropertyValue') {
-                      return function(propertyName: string) {
-                        const val = target.getPropertyValue(propertyName);
-                        if (typeof val === 'string' && val.includes('oklch')) {
-                          return convertOklchToRgbInText(val);
-                        }
-                        return val;
-                      };
-                    }
-                    const val = Reflect.get(target, prop, receiver);
-                    if (typeof val === 'string' && val.includes('oklch')) {
-                      return convertOklchToRgbInText(val);
-                    }
-                    if (typeof val === 'function') {
-                      return val.bind(target);
-                    }
-                    return val;
-                  }
-                });
-              };
-            }
-
-            // Also preprocess stylesheet elements inside the cloned document as a double layer of defense
-            const styleTags = clonedDoc.querySelectorAll('style');
-            styleTags.forEach(styleTag => {
-              if (styleTag.textContent && styleTag.textContent.includes('oklch')) {
-                styleTag.textContent = convertOklchToRgbInText(styleTag.textContent);
-              }
-            });
-
-            // Hide all control panel/navigation buttons in the downloaded image
-            const sidebarUiElements = clonedDoc.querySelectorAll('.sidebar-ui');
-            sidebarUiElements.forEach(el => {
-              (el as HTMLElement).style.display = 'none';
-            });
-
-            // Handle images carefully to avoid CORS/Taint errors
-            const images = clonedDoc.querySelectorAll('img');
-            images.forEach(img => {
-              const src = img.getAttribute('src') || '';
-              // Detect cross-origin URLs (starts with http but doesn't match local origin, and is not a safe base64/blob)
-              const isExternal = src.startsWith('http') && !src.startsWith(window.location.origin);
-              
-              if (isExternal) {
-                if (bypassCorsIssues) {
-                  // Fallback: Replace external image with a safe CSS placeholder
-                  const parent = img.parentNode;
-                  if (parent) {
-                    const fallback = clonedDoc.createElement('div');
-                    fallback.className = "w-full h-full flex items-center justify-center bg-slate-800 text-slate-400 font-bold text-lg rounded-full";
-                    fallback.innerText = "👤";
-                    fallback.style.width = "100%";
-                    fallback.style.height = "100%";
-                    fallback.style.display = "flex";
-                    fallback.style.alignItems = "center";
-                    fallback.style.justifyContent = "center";
-                    fallback.style.backgroundColor = "#1e293b";
-                    fallback.style.borderRadius = "9999px";
-                    parent.replaceChild(fallback, img);
-                  }
-                } else {
-                  // Standard attempt: Set crossorigin attribute to anonymous
-                  img.setAttribute('crossorigin', 'anonymous');
-                }
-              }
-            });
+      const dataUrl = await toPng(canvasRef.current, {
+        backgroundColor: '#020617', // Match the main slate-950 canvas background
+        pixelRatio: 2, // 2x crispness
+        cacheBust: true,
+        style: {
+          transform: 'none',
+        },
+        filter: (node) => {
+          // Exclude anything explicitly tagged to hide
+          if (node.classList?.contains('sidebar-ui')) {
+            return false;
           }
-        });
-      };
-
-      let canvas;
-      try {
-        canvas = await runCapture(false);
-      } catch (firstErr) {
-        console.warn('First render failed, trying CORS fallback...', firstErr);
-        canvas = await runCapture(true);
-      }
-
-      let dataUrl;
-      try {
-        dataUrl = canvas.toDataURL('image/png');
-      } catch (taintErr) {
-        console.warn('Canvas is tainted, executing strict local-only fallback...', taintErr);
-        canvas = await runCapture(true);
-        dataUrl = canvas.toDataURL('image/png');
-      }
+          return true;
+        }
+      });
       
       const link = document.createElement('a');
       link.download = `ff14_nexus_relationships_${Date.now()}.png`;
       link.href = dataUrl;
+      link.style.display = 'none';
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
     } catch (err) {
-      console.error('Failed to export canvas to image', err);
-      alert('抱歉，關係圖圖片生成失敗。可能是因為載入外部圖片 CORS 限制，您可以再試一次。');
+      console.error('Failed to export canvas to image using html-to-image', err);
+      // Fallback with lower quality
+      try {
+        const dataUrlFallback = await toPng(canvasRef.current, {
+          backgroundColor: '#020617',
+          pixelRatio: 1,
+          cacheBust: false
+        });
+        const link = document.createElement('a');
+        link.download = `ff14_nexus_relationships_${Date.now()}.png`;
+        link.href = dataUrlFallback;
+        link.click();
+      } catch (innerErr) {
+        console.error('html-to-image fallback also failed', innerErr);
+        alert('抱歉，關係圖圖片生成失敗。可能是因為外部圖片 CORS 限制，或是您的瀏覽器阻擋了匯出。');
+      }
     } finally {
       setIsCapturing(false);
     }
@@ -1094,73 +1024,79 @@ export default function NexusCanvas({
                   )}
                 </div>
                 
-                <button 
-                  className="absolute -top-2 -left-2 w-5 h-5 bg-red-500/80 hover:bg-red-500 border border-red-300/50 rounded-full text-[10px] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 md:transition-opacity shadow-lg cursor-pointer" 
-                  onClick={(e) => removeNode(e, node.id)} 
-                  onTouchEnd={(e) => { e.stopPropagation(); removeNode(e, node.id); }}
-                >✕</button>
-                <button 
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-full text-[12px] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 md:transition-opacity shadow-lg z-20 cursor-pointer" 
-                  onClick={(e) => openNodeEdit(e, node)} 
-                  onTouchEnd={(e) => { e.stopPropagation(); openNodeEdit(e, node); }}
-                >✎</button>
-                
-                <div 
-                  className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 border-2 border-cyan-400 rounded-full flex items-center justify-center cursor-crosshair hover:bg-cyan-500 transition-colors shadow-[0_0_10px_rgba(34,211,238,0.5)] z-20" 
-                  onMouseDown={(e) => startConnecting(e, node.id, node.x, node.y)}
-                  onTouchStart={(e) => startConnecting(e, node.id, node.x, node.y)}
-                >
-                  <div className="w-2 h-2 bg-white rounded-full pointer-events-none"></div>
-                </div>
+                {!isCapturing && (
+                  <>
+                    <button 
+                      className="absolute -top-2 -left-2 w-5 h-5 bg-red-500/80 hover:bg-red-500 border border-red-300/50 rounded-full text-[10px] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 md:transition-opacity shadow-lg cursor-pointer animate-fade-in" 
+                      onClick={(e) => removeNode(e, node.id)} 
+                      onTouchEnd={(e) => { e.stopPropagation(); removeNode(e, node.id); }}
+                    >✕</button>
+                    <button 
+                      className="absolute -top-2 -right-2 w-6 h-6 bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-full text-[12px] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 md:transition-opacity shadow-lg z-20 cursor-pointer animate-fade-in" 
+                      onClick={(e) => openNodeEdit(e, node)} 
+                      onTouchEnd={(e) => { e.stopPropagation(); openNodeEdit(e, node); }}
+                    >✎</button>
+                    
+                    <div 
+                      className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 border-2 border-cyan-400 rounded-full flex items-center justify-center cursor-crosshair hover:bg-cyan-500 transition-colors shadow-[0_0_10px_rgba(34,211,238,0.5)] z-20" 
+                      onMouseDown={(e) => startConnecting(e, node.id, node.x, node.y)}
+                      onTouchStart={(e) => startConnecting(e, node.id, node.x, node.y)}
+                    >
+                      <div className="w-2 h-2 bg-white rounded-full pointer-events-none"></div>
+                    </div>
+                  </>
+                )}
               </div>
             );
           })}
         </div>
 
-        <div className="absolute top-4 right-4 z-20 bg-slate-900/80 p-2 rounded-lg border border-white/10 backdrop-blur-md flex gap-2 shadow-lg pointer-events-auto sidebar-ui items-center">
-          <button onClick={captureCanvas} className="text-xs text-emerald-400 hover:text-emerald-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold">
-            <span>📸</span> 儲存為圖片
-          </button>
-          
-          <div className="relative">
-            <button 
-              onClick={() => setShowArrangeMenu(!showArrangeMenu)} 
-              className="text-xs text-cyan-400 hover:text-cyan-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold"
-            >
-              <span>🪄</span> 整理佈局
+        {!isCapturing && (
+          <div className="absolute top-4 right-4 z-20 bg-slate-900/80 p-2 rounded-lg border border-white/10 backdrop-blur-md flex gap-2 shadow-lg pointer-events-auto sidebar-ui items-center animate-fade-in">
+            <button onClick={captureCanvas} className="text-xs text-emerald-400 hover:text-emerald-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold">
+              <span>📸</span> 儲存為圖片
             </button>
             
-            {showArrangeMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-slate-950/95 border border-white/15 rounded-lg shadow-2xl p-1 z-30 flex flex-col gap-1 backdrop-blur-xl animate-fade-in animate-duration-200">
-                <div className="px-2 py-1 text-[10px] text-slate-500 font-bold border-b border-white/5 uppercase select-none">選擇排序方式</div>
-                <button 
-                  onClick={() => arrangeLayout('force')}
-                  className="w-full text-left text-xs px-3 py-2 rounded text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 transition-colors cursor-pointer flex items-center gap-2"
-                  title="依據角色的連線關係，自動拉近並排斥重疊節點"
-                >
-                  <span>⚡</span> 關係力導向排列
-                </button>
-                <button 
-                  onClick={() => arrangeLayout('circular')}
-                  className="w-full text-left text-xs px-3 py-2 rounded text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 transition-colors cursor-pointer flex items-center gap-2"
-                  title="將角色均勻環繞成圓圈，適合觀察核心或同心圓關係"
-                >
-                  <span>🌀</span> 圓圈環狀排列
-                </button>
-                <button 
-                  onClick={() => arrangeLayout('grid')}
-                  className="w-full text-left text-xs px-3 py-2 rounded text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 transition-colors cursor-pointer flex items-center gap-2"
-                  title="將角色整齊放置在網格矩陣中，方便清晰預覽"
-                >
-                  <span>🎴</span> 整齊網格排列
-                </button>
-              </div>
-            )}
-          </div>
+            <div className="relative">
+              <button 
+                onClick={() => setShowArrangeMenu(!showArrangeMenu)} 
+                className="text-xs text-cyan-400 hover:text-cyan-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold"
+              >
+                <span>🪄</span> 整理佈局
+              </button>
+              
+              {showArrangeMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-slate-950/95 border border-white/15 rounded-lg shadow-2xl p-1 z-30 flex flex-col gap-1 backdrop-blur-xl animate-fade-in animate-duration-200">
+                  <div className="px-2 py-1 text-[10px] text-slate-500 font-bold border-b border-white/5 uppercase select-none">選擇排序方式</div>
+                  <button 
+                    onClick={() => arrangeLayout('force')}
+                    className="w-full text-left text-xs px-3 py-2 rounded text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 transition-colors cursor-pointer flex items-center gap-2"
+                    title="依據角色的連線關係，自動拉近並排斥重疊節點"
+                  >
+                    <span>⚡</span> 關係力導向排列
+                  </button>
+                  <button 
+                    onClick={() => arrangeLayout('circular')}
+                    className="w-full text-left text-xs px-3 py-2 rounded text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 transition-colors cursor-pointer flex items-center gap-2"
+                    title="將角色均勻環繞成圓圈，適合觀察核心或同心圓關係"
+                  >
+                    <span>🌀</span> 圓圈環狀排列
+                  </button>
+                  <button 
+                    onClick={() => arrangeLayout('grid')}
+                    className="w-full text-left text-xs px-3 py-2 rounded text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 transition-colors cursor-pointer flex items-center gap-2"
+                    title="將角色整齊放置在網格矩陣中，方便清晰預覽"
+                  >
+                    <span>🎴</span> 整齊網格排列
+                  </button>
+                </div>
+              )}
+            </div>
 
-          <button onClick={() => setOffset({x: 0, y: 0})} className="text-xs text-slate-300 hover:text-white px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">📍 回原點</button>
-          <button onClick={() => { setNodes([]); setEdges([]); }} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">🗑️ 清空畫布</button>
-        </div>
+            <button onClick={() => setOffset({x: 0, y: 0})} className="text-xs text-slate-300 hover:text-white px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">📍 回原點</button>
+            <button onClick={() => { setNodes([]); setEdges([]); }} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">🗑️ 清空畫布</button>
+          </div>
+        )}
       </div>
 
       {(cpModal.isOpen || editingEdge) && (() => {
