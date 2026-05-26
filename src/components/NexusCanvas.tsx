@@ -743,6 +743,24 @@ export default function NexusCanvas({
         const labelWidth = Math.max(90, width);
         const halfWidth = labelWidth / 2;
 
+        // Tangent unit vector at end of curve (at P3/actualEnd, referencing direction from control point cp2 to the end coordinate)
+        const tangentDx = actualEndX - cp2x;
+        const tangentDy = actualEndY - cp2y;
+        const tangentLen = Math.sqrt(tangentDx * tangentDx + tangentDy * tangentDy) || 1;
+        const ux = tangentDx / tangentLen;
+        const uy = tangentDy / tangentLen;
+
+        const arrowHeight = 10;
+        const arrowWidth = 8;
+        const tipX = actualEndX;
+        const tipY = actualEndY;
+        const backLeftX = tipX - ux * arrowHeight - uy * (arrowWidth / 2);
+        const backLeftY = tipY - uy * arrowHeight + ux * (arrowWidth / 2);
+        const backRightX = tipX - ux * arrowHeight + uy * (arrowWidth / 2);
+        const backRightY = tipY - uy * arrowHeight - ux * (arrowWidth / 2);
+        
+        const arrowheadPath = `M ${tipX} ${tipY} L ${backLeftX} ${backLeftY} L ${backRightX} ${backRightY} Z`;
+
         return (
           <g key={id} className="group">
             {/* Click layer/interaction track */}
@@ -755,15 +773,30 @@ export default function NexusCanvas({
               onClick={(e) => openEdgeEdit(e, edge)} 
               onTouchEnd={(e) => { e.stopPropagation(); openEdgeEdit(e, edge); }} 
             />
-            {/* Visible connection path with arrow at target */}
+            {/* Glow Path behind connection line (using vector glow instead of blurry CSS filter for crispness in html-to-image) */}
+            <path 
+              d={pathData} 
+              stroke={color} 
+              strokeWidth={5} 
+              strokeOpacity={0.25}
+              fill="none" 
+              className="pointer-events-none transition-all group-hover:stroke-[7px]" 
+            />
+            {/* Crisp Connection Line */}
             <path 
               d={pathData} 
               stroke={color} 
               strokeWidth={2} 
               fill="none" 
-              className="drop-shadow-[0_0_5px_currentColor] pointer-events-none transition-all group-hover:stroke-[3px]" 
-              style={{ color }} 
-              markerEnd="url(#arrow-forward)"
+              className="pointer-events-none transition-all group-hover:stroke-[3px]" 
+            />
+            
+            {/* Inline Vector Arrowhead (no references, zero blurring, 100% vector clarity in exports) */}
+            <path 
+              d={arrowheadPath} 
+              fill={color} 
+              className="pointer-events-none opacity-90 transition-transform group-hover:scale-110"
+              style={{ transformOrigin: `${tipX}px ${tipY}px` }}
             />
             
             {/* Label in the middle */}
