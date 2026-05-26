@@ -281,6 +281,7 @@ export default function NexusCanvas({
   }, []);
 
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   
@@ -314,6 +315,42 @@ export default function NexusCanvas({
   const [editingNode, setEditingNode] = useState<CanvasNode | null>(null); 
   const [activeTab, setActiveTab] = useState<'pc' | 'friend' | 'npc'>('pc'); 
   const [showArrangeMenu, setShowArrangeMenu] = useState(false);
+
+  useEffect(() => {
+    const canvasElement = canvasRef.current;
+    if (!canvasElement) return;
+
+    const handleRawWheel = (e: WheelEvent) => {
+      e.preventDefault();
+
+      const zoomIntensity = 0.08;
+      const rect = canvasElement.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const mouseCtxX = (mouseX - offset.x) / zoom;
+      const mouseCtxY = (mouseY - offset.y) / zoom;
+
+      // Guard against mouse vs touchpad differences
+      const deltaFactor = e.deltaMode === 1 ? 20 : 1;
+      const dy = e.deltaY * deltaFactor;
+
+      const zoomFactor = dy < 0 ? (1 + zoomIntensity) : (1 - zoomIntensity);
+      let newZoom = zoom * zoomFactor;
+      newZoom = Math.max(0.2, Math.min(3.5, newZoom));
+
+      const newOffsetX = mouseX - mouseCtxX * newZoom;
+      const newOffsetY = mouseY - mouseCtxY * newZoom;
+
+      setZoom(newZoom);
+      setOffset({ x: newOffsetX, y: newOffsetY });
+    };
+
+    canvasElement.addEventListener('wheel', handleRawWheel, { passive: false });
+    return () => {
+      canvasElement.removeEventListener('wheel', handleRawWheel);
+    };
+  }, [zoom, offset]);
 
   const arrangeLayout = (type: 'circular' | 'grid' | 'force') => {
     if (nodes.length === 0) return;
@@ -438,28 +475,31 @@ export default function NexusCanvas({
       const savedNodes = await localforage.getItem<CanvasNode[]>('nexus_canvas_nodes');
       const savedEdges = await localforage.getItem<CanvasEdge[]>('nexus_canvas_edges');
       const savedOffset = await localforage.getItem<{ x: number; y: number }>('nexus_canvas_offset');
+      const savedZoom = await localforage.getItem<number>('nexus_canvas_zoom');
       if (savedNodes) setNodes(savedNodes);
       if (savedEdges) setEdges(savedEdges);
       if (savedOffset) setOffset(savedOffset);
+      if (typeof savedZoom === 'number' && !isNaN(savedZoom)) setZoom(savedZoom);
     };
     loadCanvasData();
   }, []);
 
   useEffect(() => {
     const saveCanvasData = async () => {
-      if (nodes.length > 0 || edges.length > 0 || offset.x !== 0 || offset.y !== 0) {
+      if (nodes.length > 0 || edges.length > 0 || offset.x !== 0 || offset.y !== 0 || zoom !== 1) {
         await localforage.setItem('nexus_canvas_nodes', nodes);
         await localforage.setItem('nexus_canvas_edges', edges);
         await localforage.setItem('nexus_canvas_offset', offset);
+        await localforage.setItem('nexus_canvas_zoom', zoom);
       }
     };
     saveCanvasData();
-  }, [nodes, edges, offset]);
+  }, [nodes, edges, offset, zoom]);
 
   const addNodeToCanvas = (char: Character) => {
     if (nodes.find(n => n.charId === char.id)) return;
-    const centerX = -offset.x + window.innerWidth / 2 - 100;
-    const centerY = -offset.y + window.innerHeight / 2 - 50;
+    const centerX = (-offset.x + window.innerWidth / 2 - 100) / zoom;
+    const centerY = (-offset.y + window.innerHeight / 2 - 50) / zoom;
     const newNode: CanvasNode = { 
       id: `node_${Date.now()}`, 
       charId: char.id, 
@@ -492,12 +532,16 @@ export default function NexusCanvas({
       setOffset({ x: pos.x - panStart.x, y: pos.y - panStart.y });
     } else if (draggingNode) {
       if (e.cancelable) e.preventDefault();
-      setNodes(nodes.map(n => n.id === draggingNode ? { ...n, x: pos.x - offset.x - dragOffset.x, y: pos.y - offset.y - dragOffset.y } : n));
+      setNodes(nodes.map(n => n.id === draggingNode ? { 
+        ...n, 
+        x: (pos.x - offset.x) / zoom - dragOffset.x, 
+        y: (pos.y - offset.y) / zoom - dragOffset.y 
+      } : n));
     }
     
     if (connecting) {
       if (e.cancelable) e.preventDefault();
-      setMousePos({ x: pos.x - offset.x, y: pos.y - offset.y });
+      setMousePos({ x: (pos.x - offset.x) / zoom, y: (pos.y - offset.y) / zoom });
     }
   };
 
@@ -511,7 +555,10 @@ export default function NexusCanvas({
     e.stopPropagation();
     const pos = getPointerPos(e);
     setDraggingNode(node.id);
-    setDragOffset({ x: pos.x - offset.x - node.x, y: pos.y - offset.y - node.y });
+    setDragOffset({ 
+      x: (pos.x - offset.x) / zoom - node.x, 
+      y: (pos.y - offset.y) / zoom - node.y 
+    });
   };
 
   const startConnecting = (e: React.MouseEvent | React.TouchEvent, nodeId: string, nodeX: number, nodeY: number) => {
@@ -544,8 +591,8 @@ export default function NexusCanvas({
     if (connecting) {
       if (e.changedTouches.length > 0) {
         const pos = getPointerPos({ touches: e.changedTouches } as any); 
-        const canvasX = pos.x - offset.x;
-        const canvasY = pos.y - offset.y;
+        const canvasX = (pos.x - offset.x) / zoom;
+        const canvasY = (pos.y - offset.y) / zoom;
         
         const targetNode = nodes.find(n => 
           canvasX >= n.x && canvasX <= n.x + 200 && 
@@ -979,7 +1026,7 @@ export default function NexusCanvas({
         </div>
       </div>
 
-      <div ref={canvasRef} className="flex-1 relative overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:24px_24px] touch-none" style={{ backgroundPosition: `${offset.x}px ${offset.y}px` }}>
+      <div ref={canvasRef} className="flex-1 relative overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:24px_24px] touch-none" style={{ backgroundPosition: `${offset.x}px ${offset.y}px`, backgroundSize: `${24 * zoom}px ${24 * zoom}px` }}>
         <svg 
           width={dimensions.width} 
           height={dimensions.height} 
@@ -995,13 +1042,13 @@ export default function NexusCanvas({
               <path d="M 0 1.5 L 10 5 L 0 8.5 Z" fill="currentColor" />
             </marker>
           </defs>
-          <g transform={`translate(${offset.x}, ${offset.y})`}>
+          <g transform={`translate(${offset.x}, ${offset.y}) scale(${zoom})`}>
             {renderEdges()}
             {connecting && <path d={`M ${connecting.startX} ${connecting.startY} C ${connecting.startX + 50} ${connecting.startY}, ${mousePos.x - 50} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`} stroke="#4de0ff" strokeWidth="2" strokeDasharray="5,5" fill="none" className="opacity-80 animate-pulse" />}
           </g>
         </svg>
 
-        <div className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transformOrigin: '0 0' }}>
+        <div className="absolute inset-0 w-full h-full pointer-events-none z-10" style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
           {nodes.map(node => {
             const charData = characters.find(c => c.id === node.charId) || npcs.find(c => c.id === node.charId) || defaultCharacter;
             return (
@@ -1080,6 +1127,41 @@ export default function NexusCanvas({
                 <div>🍎 <span className="text-emerald-300 font-bold">macOS:</span> Command + Shift + 4</div>
               </div>
             </div>
+          </div>
+
+          {/* Zoom controls with live indicator */}
+          <div className="flex items-center gap-1 bg-black/45 py-1 px-2 rounded border border-white/5 shadow-inner">
+            <button 
+              onClick={() => {
+                setZoom(z => Math.max(0.2, Math.min(3.5, Math.round((z - 0.1) * 10) / 10)));
+              }}
+              className="w-6 h-6 flex items-center justify-center text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded font-bold cursor-pointer transition-colors"
+              title="縮小 (滾輪亦可)"
+            >
+              －
+            </button>
+            <span className="text-[10px] md:text-xs font-mono font-bold text-cyan-400 w-12 text-center select-none" title="目前縮放比例">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button 
+              onClick={() => {
+                setZoom(z => Math.max(0.2, Math.min(3.5, Math.round((z + 0.1) * 10) / 10)));
+              }}
+              className="w-6 h-6 flex items-center justify-center text-xs text-slate-400 hover:text-white hover:bg-white/10 rounded font-bold cursor-pointer transition-colors"
+              title="放大 (滾輪亦可)"
+            >
+              ＋
+            </button>
+            <button 
+              onClick={() => {
+                setZoom(1);
+                setOffset({ x: 0, y: 0 });
+              }}
+              className="text-[9px] px-1 bg-cyan-950/40 hover:bg-cyan-900 border border-cyan-500/20 text-cyan-300 hover:text-cyan-200 rounded py-0.5 cursor-pointer ml-1 select-none transition-colors"
+              title="重設大小與位置"
+            >
+              1:1
+            </button>
           </div>
 
           <div className="relative">
