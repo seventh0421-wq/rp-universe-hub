@@ -80,7 +80,7 @@ export default function NexusCanvas({
   
   const [editingEdge, setEditingEdge] = useState<CanvasEdge | null>(null); 
   const [editingNode, setEditingNode] = useState<CanvasNode | null>(null); 
-  const [activeTab, setActiveTab] = useState<'pc' | 'npc'>('pc'); 
+  const [activeTab, setActiveTab] = useState<'pc' | 'friend' | 'npc'>('pc'); 
 
   useEffect(() => {
     const loadCanvasData = async () => {
@@ -324,64 +324,72 @@ export default function NexusCanvas({
           </h2>
           
           <div className="flex bg-black/40 rounded-lg p-1">
-            <button onClick={() => setActiveTab('pc')} className={`flex-1 text-xs sm:text-sm py-1 md:py-1.5 rounded transition-colors font-bold cursor-pointer ${activeTab === 'pc' ? 'bg-white/10 text-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}>光之戰士</button>
-            <button onClick={() => setActiveTab('npc')} className={`flex-1 text-xs sm:text-sm py-1 md:py-1.5 rounded transition-colors font-bold cursor-pointer ${activeTab === 'npc' ? 'bg-white/10 text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}>官方 NPC</button>
+            <button onClick={() => setActiveTab('pc')} className={`flex-1 text-xs py-1 md:py-1.5 rounded transition-colors font-bold cursor-pointer ${activeTab === 'pc' ? 'bg-white/10 text-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}>光之戰士</button>
+            <button onClick={() => setActiveTab('friend')} className={`flex-1 text-xs py-1 md:py-1.5 rounded transition-colors font-bold cursor-pointer ${activeTab === 'friend' ? 'bg-white/10 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}>好友名單</button>
+            <button onClick={() => setActiveTab('npc')} className={`flex-1 text-xs py-1 md:py-1.5 rounded transition-colors font-bold cursor-pointer ${activeTab === 'npc' ? 'bg-white/10 text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}>官方 NPC</button>
           </div>
         </div>
         
         <div className="p-4 flex-1 overflow-y-auto custom-scrollbar space-y-2 md:space-y-3 relative">
-          {activeTab === 'pc' ? (
+          {activeTab === 'pc' && (
             <>
-              {myChars.map(char => {
-                const isOnCanvas = nodes.find(n => n.charId === char.id);
-                return (
-                  <div 
-                    key={char.id} 
-                    onClick={() => !isOnCanvas && addNodeToCanvas(char)} 
-                    className={`flex items-center gap-3 p-2 md:p-3 rounded-xl border transition-all ${isOnCanvas ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-black/40 border-white/10 hover:border-cyan-500/50 cursor-pointer hover:bg-white/5'}`}
-                  >
-                    <div className="w-8 h-8 rounded-full bg-slate-800 border overflow-hidden shrink-0 flex items-center justify-center" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
-                      {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-xs">👤</span>}
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <div className="text-sm font-bold truncate text-slate-200">{char.name || '未命名'}</div>
-                      <div className="text-xs text-slate-500 truncate hidden md:block">{char.tags || char.race || '種族不明'}</div>
-                    </div>
-                    {!isOnCanvas && <span className="text-cyan-500 font-bold pr-2">+</span>}
-                  </div>
-                );
-              })}
-              
-              {importedChars.length > 0 && (
-                <>
-                  <div className="text-xs text-emerald-500 font-bold border-b border-emerald-500/20 pb-1 mt-4 md:mt-6 mb-2 flex items-center gap-1">
-                    <span>🤝</span> 匯入角色
-                  </div>
-                  {importedChars.map(char => {
-                    const isOnCanvas = nodes.find(n => n.charId === char.id);
-                    return (
-                      <div 
-                        key={char.id} 
-                        onClick={() => !isOnCanvas && addNodeToCanvas(char)} 
-                        className={`flex items-center gap-3 p-2 md:p-3 rounded-xl border transition-all ${isOnCanvas ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-black/40 border-white/10 hover:border-emerald-500/50 cursor-pointer hover:bg-white/5'}`}
-                      >
-                        <div className="w-8 h-8 rounded-full bg-slate-800 border overflow-hidden shrink-0 flex items-center justify-center" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
-                          {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-xs">👤</span>}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <div className="text-sm font-bold truncate text-slate-200 flex items-center gap-1">
-                            {char.name || '未命名'} <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1 rounded border border-emerald-500/30">匯入</span>
-                          </div>
-                          <div className="text-xs text-slate-500 truncate hidden md:block">{char.tags || char.race || '種族不明'}</div>
-                        </div>
-                        {!isOnCanvas && <span className="text-emerald-500 font-bold pr-2">+</span>}
+              {myChars.length === 0 ? (
+                <div className="text-xs text-slate-500 text-center py-4">無原創角色</div>
+              ) : (
+                myChars.map(char => {
+                  const isOnCanvas = nodes.find(n => n.charId === char.id);
+                  return (
+                    <div 
+                      key={char.id} 
+                      onClick={() => !isOnCanvas && addNodeToCanvas(char)} 
+                      className={`flex items-center gap-3 p-2 md:p-3 rounded-xl border transition-all ${isOnCanvas ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-black/40 border-white/10 hover:border-cyan-500/50 cursor-pointer hover:bg-white/5'}`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-slate-800 border overflow-hidden shrink-0 flex items-center justify-center" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
+                        {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-xs">👤</span>}
                       </div>
-                    );
-                  })}
-                </>
+                      <div className="flex-1 overflow-hidden">
+                        <div className="text-sm font-bold truncate text-slate-200">{char.name || '未命名'}</div>
+                        <div className="text-xs text-slate-500 truncate hidden md:block">{char.tags || char.race || '種族不明'}</div>
+                      </div>
+                      {!isOnCanvas && <span className="text-cyan-500 font-bold pr-2">+</span>}
+                    </div>
+                  );
+                })
               )}
             </>
-          ) : (
+          )}
+
+          {activeTab === 'friend' && (
+            <>
+              {importedChars.length === 0 ? (
+                <div className="text-xs text-slate-500 text-center py-4">目前好友名單中無角色</div>
+              ) : (
+                importedChars.map(char => {
+                  const isOnCanvas = nodes.find(n => n.charId === char.id);
+                  return (
+                    <div 
+                      key={char.id} 
+                      onClick={() => !isOnCanvas && addNodeToCanvas(char)} 
+                      className={`flex items-center gap-3 p-2 md:p-3 rounded-xl border transition-all ${isOnCanvas ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-black/40 border-white/10 hover:border-emerald-500/50 cursor-pointer hover:bg-white/5'}`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-slate-800 border overflow-hidden shrink-0 flex items-center justify-center" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
+                        {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-xs">👤</span>}
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <div className="text-sm font-bold truncate text-slate-200 flex items-center gap-1">
+                          {char.name || '未命名'} <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1 rounded border border-emerald-500/30">好友</span>
+                        </div>
+                        <div className="text-xs text-slate-500 truncate hidden md:block">{char.tags || char.race || '種族不明'}</div>
+                      </div>
+                      {!isOnCanvas && <span className="text-emerald-500 font-bold pr-2">+</span>}
+                    </div>
+                  );
+                })
+              )}
+            </>
+          )}
+
+          {activeTab === 'npc' && (
             !showNpcs ? (
               <div className="bg-amber-900/20 border border-amber-500/50 rounded-xl p-4 text-center mt-4 animate-fade-in">
                 <div className="text-2xl mb-2">⚠️</div>

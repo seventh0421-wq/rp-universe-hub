@@ -68,7 +68,7 @@ export default function CharacterEditor({ initialData, onSave, onCancel }: Chara
 
   const handleCopyText = () => {
     const statsText = formData.radarStats.map(s => `${s.name}: ${s.value}`).join(' | ');
-    const textOutput = `【艾歐澤亞冒險者銘牌】
+    const textOutput = `【艾奧傑亞冒險者銘牌】
 ◆ 基本資料
 名稱：${formData.name || '未設定'}
 種族：${formData.race || '未設定'}

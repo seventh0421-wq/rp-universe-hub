@@ -19,7 +19,7 @@ export default function App() {
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false); 
   const [showNpcs, setShowNpcs] = useState(false); 
-  const [rosterTab, setRosterTab] = useState('pc'); 
+  const [rosterTab, setRosterTab] = useState<'pc' | 'friend' | 'npc'>('pc'); 
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isDataLoaded, setIsDataLoaded] = useState(false);
@@ -47,7 +47,13 @@ export default function App() {
       if (savedCPs) setCpSettings(savedCPs);
       
       if (savedNpcs) {
-        setNpcs(savedNpcs);
+        // Automatically sync predefined NPC templates with the latest code definition (forces blank state for defaults)
+        const defaultNpcIds = defaultNPCs.map(n => n.id);
+        const mergedNpcs = [
+          ...defaultNPCs,
+          ...savedNpcs.filter(n => !defaultNpcIds.includes(n.id))
+        ];
+        setNpcs(mergedNpcs);
       } else {
         setNpcs(defaultNPCs); 
       }
@@ -88,7 +94,8 @@ export default function App() {
       if (data.id && data.id.startsWith('char_')) {
         setCharacters(characters.map(c => c.id === data.id ? data : c));
       } else {
-        setCharacters([...characters, { ...data, id: `char_${Date.now()}`, isNPC: false }]);
+        const isFriend = editingType === 'friend';
+        setCharacters([...characters, { ...data, id: `char_${Date.now()}`, isNPC: false, isImported: isFriend }]);
       }
     }
     setView('dashboard');
@@ -114,7 +121,7 @@ export default function App() {
     const [importText, setImportText] = useState('');
 
     const handleImport = () => {
-      if (!importText.includes('【艾歐澤亞冒險者銘牌】')) {
+      if (!importText.includes('【艾歐澤亞冒險者銘牌】') && !importText.includes('【艾奧傑亞冒險者銘牌】')) {
         showToast('格式不符！請確保貼上的是由本系統「複製文字版」匯出的純文字內容。');
         return;
       }
@@ -198,10 +205,11 @@ export default function App() {
           }
         }
 
-        setEditingType('pc');
+        setEditingType('friend');
         saveCharacter(char);
+        setRosterTab('friend');
         setIsImportModalOpen(false);
-        showToast(`✅ 成功匯入結緣冒險者：${char.name || '未命名角色'}！`);
+        showToast(`✅ 成功匯入好友角色檔案：${char.name || '未命名角色'}！`);
 
       } catch (err) {
         console.error(err);
@@ -215,7 +223,7 @@ export default function App() {
           <h2 className="text-xl font-bold text-cyan-400 mb-2 border-b border-white/10 pb-4 flex items-center gap-2" style={{ fontFamily: "'Orbitron', 'Noto Serif TC', serif" }}>
             <span>📥</span> 匯入純文字設定
           </h2>
-          <p className="text-sm text-slate-400 mb-4">請將您或朋友從「📋 複製文字版」匯出的【艾歐澤亞冒險者銘牌】完整文字貼在下方，系統將自動為您解析並生成角色資料卡。</p>
+          <p className="text-sm text-slate-400 mb-4">請將您或朋友從「📋 複製文字版」匯出的【艾奧傑亞冒險者銘牌】完整文字貼在下方，系統將自動為您解析並生成角色資料卡。</p>
           
           <textarea 
             value={importText}
@@ -464,20 +472,32 @@ export default function App() {
               <div className="flex flex-wrap gap-2 mb-6 relative z-10 border-b border-white/10 pb-4">
                 <div className="flex bg-black/40 rounded-lg p-1 w-full sm:w-auto">
                   <button onClick={() => setRosterTab('pc')} className={`flex-1 sm:flex-none px-4 text-sm py-1.5 rounded transition-colors font-bold cursor-pointer ${rosterTab === 'pc' ? 'bg-white/10 text-cyan-400' : 'text-slate-500 hover:text-slate-300'}`}>光之戰士</button>
+                  <button onClick={() => setRosterTab('friend')} className={`flex-1 sm:flex-none px-4 text-sm py-1.5 rounded transition-colors font-bold cursor-pointer ${rosterTab === 'friend' ? 'bg-white/10 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}>好友名單</button>
                   <button onClick={() => setRosterTab('npc')} className={`flex-1 sm:flex-none px-4 text-sm py-1.5 rounded transition-colors font-bold cursor-pointer ${rosterTab === 'npc' ? 'bg-white/10 text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}>官方 NPC</button>
                 </div>
                 
                 <div className="flex gap-2 w-full sm:w-auto sm:ml-auto">
-                  <button onClick={() => setIsImportModalOpen(true)} className="flex-1 sm:flex-none text-sm px-4 py-2 bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors border border-slate-600 font-bold whitespace-nowrap cursor-pointer">📥 匯入文字</button>
-                  <button onClick={() => openEditor(null, 'pc')} className="flex-1 sm:flex-none text-sm px-4 py-2 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 rounded-lg transition-colors border border-cyan-500/30 font-bold whitespace-nowrap cursor-pointer">+ 創建新角色</button>
+                  {rosterTab === 'pc' && (
+                    <>
+                      <button onClick={() => setIsImportModalOpen(true)} className="flex-1 sm:flex-none text-sm px-4 py-2 bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors border border-slate-600 font-bold whitespace-nowrap cursor-pointer">📥 匯入文字</button>
+                      <button onClick={() => openEditor(null, 'pc')} className="flex-1 sm:flex-none text-sm px-4 py-2 bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/40 rounded-lg transition-colors border border-cyan-500/30 font-bold whitespace-nowrap cursor-pointer">+ 創建新角色</button>
+                    </>
+                  )}
+                  {rosterTab === 'friend' && (
+                    <>
+                      <button onClick={() => setIsImportModalOpen(true)} className="flex-1 sm:flex-none text-sm px-4 py-2 bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors border border-slate-600 font-bold whitespace-nowrap cursor-pointer">📥 匯入好友</button>
+                      <button onClick={() => openEditor(null, 'friend')} className="flex-1 sm:flex-none text-sm px-4 py-2 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/40 rounded-lg transition-colors border border-emerald-500/30 font-bold whitespace-nowrap cursor-pointer">+ 創建好友角色</button>
+                    </>
+                  )}
+                  {rosterTab === 'npc' && (
+                    <button onClick={() => openEditor(null, 'npc')} className="flex-1 sm:flex-none text-sm px-4 py-2 bg-amber-500/20 text-amber-300 hover:bg-amber-500/40 rounded-lg transition-colors border border-amber-500/30 font-bold whitespace-nowrap cursor-pointer">+ 新增 NPC</button>
+                  )}
                 </div>
               </div>
 
               {rosterTab === 'pc' && (
-                characters.length === 0 && !searchQuery ? (
+                filteredMyChars.length === 0 ? (
                   <div className="text-center py-10 border border-dashed border-white/20 rounded-xl text-slate-500 bg-black/20 animate-fade-in text-sm md:text-base">目前還沒有角色，點擊上方按鈕開始創造吧！</div>
-                ) : (filteredMyChars.length === 0 && filteredImportedChars.length === 0) ? (
-                  <div className="text-center py-10 text-slate-500 animate-fade-in text-sm">找不到符合條件的角色。</div>
                 ) : (
                   <div className="space-y-6 animate-fade-in">
                     {filteredMyChars.length > 0 && (
@@ -504,22 +524,36 @@ export default function App() {
                         </div>
                       </div>
                     )}
+                  </div>
+                )
+              )}
 
+              {rosterTab === 'friend' && (
+                filteredImportedChars.length === 0 ? (
+                  <div className="text-center py-10 border border-dashed border-white/20 rounded-xl text-slate-500 bg-black/20 animate-fade-in text-sm md:text-base flex flex-col items-center justify-center gap-3">
+                    <p>目前好友名單中還沒有角色。</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setIsImportModalOpen(true)} className="text-xs px-4 py-2 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/40 rounded-lg transition-colors border border-emerald-500/30 font-bold cursor-pointer">📥 匯入好友檔案</button>
+                      <button onClick={() => openEditor(null, 'friend')} className="text-xs px-4 py-2 bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white rounded-lg transition-colors border border-slate-600 font-bold cursor-pointer">+ 新增好友角色</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-6 animate-fade-in">
                     {filteredImportedChars.length > 0 && (
                       <div>
                         <h3 className="text-sm text-emerald-500 mb-3 border-b border-emerald-500/20 pb-1 font-bold flex items-center gap-2">
-                          <span>🤝</span> 結識的冒險者 (匯入)
+                          <span>👥</span> 好友名單 (他人的角色)
                         </h3>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-10">
                           {filteredImportedChars.map(char => (
-                            <div key={char.id} onClick={() => openEditor(char, 'pc')} className="bg-gradient-to-br from-black/40 to-black/20 border border-white/10 hover:border-emerald-500/30 rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] group/card relative">
+                            <div key={char.id} onClick={() => openEditor(char, 'friend')} className="bg-gradient-to-br from-black/40 to-black/20 border border-white/10 hover:border-emerald-500/30 rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] group/card relative">
                               <div className="flex items-center gap-3 md:gap-4">
                                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
                                   {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-slate-300">👤</span>}
                                 </div>
                                 <div className="overflow-hidden flex-1">
                                   <h3 className="font-bold text-slate-100 text-sm md:text-base truncate flex items-center gap-1">
-                                    {char.name || '未命名角色'} <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1 rounded border border-emerald-500/30">匯入</span>
+                                    {char.name || '未命名角色'} <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1 rounded border border-emerald-500/30">好友</span>
                                   </h3>
                                   <p className="text-[10px] md:text-xs text-slate-400 truncate">{char.race || '種族不明'} | {char.gender || '性別不明'}</p>
                                   <div className="mt-1.5 md:mt-2 text-[10px] text-cyan-300 truncate opacity-70 group-hover/card:opacity-100 transition-opacity">🏷️ {char.tags || '無標籤'}</div>
@@ -631,7 +665,7 @@ export default function App() {
             <section onClick={() => setView('nexus')} className="bg-slate-900/60 backdrop-blur-xl border border-cyan-500/20 rounded-2xl p-4 md:p-6 shadow-xl group cursor-pointer hover:bg-slate-800/80 transition-all">
               <div className="flex items-center justify-between mb-3 md:mb-4">
                 <h2 className="text-lg md:text-xl font-bold text-cyan-400 flex items-center gap-2" style={{ fontFamily: "'Orbitron', 'Noto Serif TC', serif" }}>
-                  <span>🕸️</span> 艾歐澤亞關係網
+                  <span>🕸️</span> 艾奧傑亞關係網
                 </h2>
                 <span className="text-slate-500 group-hover:text-cyan-400 transition-colors">➔</span>
               </div>
