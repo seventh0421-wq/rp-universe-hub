@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Character, CanvasNode, CanvasEdge } from '../types';
 import { defaultCharacter, getPointerPos, getRadarPoint } from '../constants';
 import localforage from 'localforage';
-import { toPng } from 'html-to-image';
 
 export function convertOklchToRgbInText(text: string): string {
   const oklchRegex = /oklch\(\s*([0-9.]+%?)[,\s]+([0-9.]+)[,\s]+([0-9.]+)(?:\s*[\/,]\s*([0-9.]+%?))?\s*\)/g;
@@ -245,62 +244,42 @@ export default function NexusCanvas({
   onCancel 
 }: NexusCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
   const [nodes, setNodes] = useState<CanvasNode[]>([]);
   const [edges, setEdges] = useState<CanvasEdge[]>([]);
+  const [dimensions, setDimensions] = useState({ width: 1200, height: 800 });
 
-  const captureCanvas = async () => {
+  useEffect(() => {
     if (!canvasRef.current) return;
-    setIsCapturing(true);
-    try {
-      // Give time for UI feedback to render & let React hide interactive helper buttons from DOM
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      const dataUrl = await toPng(canvasRef.current, {
-        backgroundColor: '#020617', // Match the main slate-950 canvas background
-        pixelRatio: 2, // 2x crispness
-        cacheBust: true,
-        style: {
-          transform: 'none',
-        },
-        filter: (node) => {
-          // Exclude anything explicitly tagged to hide
-          if (node.classList?.contains('sidebar-ui')) {
-            return false;
-          }
-          return true;
-        }
-      });
-      
-      const link = document.createElement('a');
-      link.download = `ff14_nexus_relationships_${Date.now()}.png`;
-      link.href = dataUrl;
-      link.style.display = 'none';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch (err) {
-      console.error('Failed to export canvas to image using html-to-image', err);
-      // Fallback with lower quality
-      try {
-        const dataUrlFallback = await toPng(canvasRef.current, {
-          backgroundColor: '#020617',
-          pixelRatio: 1,
-          cacheBust: false
+    
+    const updateDimensions = () => {
+      if (canvasRef.current) {
+        setDimensions({
+          width: canvasRef.current.clientWidth || window.innerWidth,
+          height: canvasRef.current.clientHeight || window.innerHeight
         });
-        const link = document.createElement('a');
-        link.download = `ff14_nexus_relationships_${Date.now()}.png`;
-        link.href = dataUrlFallback;
-        link.click();
-      } catch (innerErr) {
-        console.error('html-to-image fallback also failed', innerErr);
-        alert('抱歉，關係圖圖片生成失敗。可能是因為外部圖片 CORS 限制，或是您的瀏覽器阻擋了匯出。');
       }
-    } finally {
-      setIsCapturing(false);
-    }
-  };
-  
+    };
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDimensions({ width, height });
+        }
+      }
+    });
+
+    observer.observe(canvasRef.current);
+    updateDimensions();
+
+    window.addEventListener('resize', updateDimensions);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateDimensions);
+    };
+  }, []);
+
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -1001,7 +980,13 @@ export default function NexusCanvas({
       </div>
 
       <div ref={canvasRef} className="flex-1 relative overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:24px_24px] touch-none" style={{ backgroundPosition: `${offset.x}px ${offset.y}px` }}>
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+        <svg 
+          width={dimensions.width} 
+          height={dimensions.height} 
+          viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+          style={{ width: `${dimensions.width}px`, height: `${dimensions.height}px` }}
+          className="absolute inset-0 pointer-events-none z-0"
+        >
           <defs>
             <marker id="arrow-forward" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
               <path d="M 0 1.5 L 10 5 L 0 8.5 Z" fill="currentColor" />
@@ -1057,79 +1042,85 @@ export default function NexusCanvas({
                   )}
                 </div>
                 
-                {!isCapturing && (
-                  <>
-                    <button 
-                      className="absolute -top-2 -left-2 w-5 h-5 bg-red-500/80 hover:bg-red-500 border border-red-300/50 rounded-full text-[10px] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 md:transition-opacity shadow-lg cursor-pointer animate-fade-in" 
-                      onClick={(e) => removeNode(e, node.id)} 
-                      onTouchEnd={(e) => { e.stopPropagation(); removeNode(e, node.id); }}
-                    >✕</button>
-                    <button 
-                      className="absolute -top-2 -right-2 w-6 h-6 bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-full text-[12px] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 md:transition-opacity shadow-lg z-20 cursor-pointer animate-fade-in" 
-                      onClick={(e) => openNodeEdit(e, node)} 
-                      onTouchEnd={(e) => { e.stopPropagation(); openNodeEdit(e, node); }}
-                    >✎</button>
-                    
-                    <div 
-                      className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 border-2 border-cyan-400 rounded-full flex items-center justify-center cursor-crosshair hover:bg-cyan-500 transition-colors shadow-[0_0_10px_rgba(34,211,238,0.5)] z-20" 
-                      onMouseDown={(e) => startConnecting(e, node.id, node.x, node.y)}
-                      onTouchStart={(e) => startConnecting(e, node.id, node.x, node.y)}
-                    >
-                      <div className="w-2 h-2 bg-white rounded-full pointer-events-none"></div>
-                    </div>
-                  </>
-                )}
+                <button 
+                  className="absolute -top-2 -left-2 w-5 h-5 bg-red-500/80 hover:bg-red-500 border border-red-300/50 rounded-full text-[10px] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 md:transition-opacity shadow-lg cursor-pointer animate-fade-in" 
+                  onClick={(e) => removeNode(e, node.id)} 
+                  onTouchEnd={(e) => { e.stopPropagation(); removeNode(e, node.id); }}
+                >✕</button>
+                <button 
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-slate-700 hover:bg-slate-600 border border-slate-500 rounded-full text-[12px] text-white flex items-center justify-center opacity-0 group-hover:opacity-100 md:transition-opacity shadow-lg z-20 cursor-pointer animate-fade-in" 
+                  onClick={(e) => openNodeEdit(e, node)} 
+                  onTouchEnd={(e) => { e.stopPropagation(); openNodeEdit(e, node); }}
+                >✎</button>
+                
+                <div 
+                  className="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-slate-800 border-2 border-cyan-400 rounded-full flex items-center justify-center cursor-crosshair hover:bg-cyan-500 transition-colors shadow-[0_0_10px_rgba(34,211,238,0.5)] z-20" 
+                  onMouseDown={(e) => startConnecting(e, node.id, node.x, node.y)}
+                  onTouchStart={(e) => startConnecting(e, node.id, node.x, node.y)}
+                >
+                  <div className="w-2 h-2 bg-white rounded-full pointer-events-none"></div>
+                </div>
               </div>
             );
           })}
         </div>
 
-        {!isCapturing && (
-          <div className="absolute top-4 right-4 z-20 bg-slate-900/80 p-2 rounded-lg border border-white/10 backdrop-blur-md flex gap-2 shadow-lg pointer-events-auto sidebar-ui items-center animate-fade-in">
-            <button onClick={captureCanvas} className="text-xs text-emerald-400 hover:text-emerald-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold">
-              <span>📸</span> 儲存為圖片
+        <div className="absolute top-4 right-4 z-20 bg-slate-900/80 p-2 rounded-lg border border-white/10 backdrop-blur-md flex gap-2 shadow-lg pointer-events-auto sidebar-ui items-center animate-fade-in">
+          <div className="relative group/hint">
+            <button className="text-xs text-amber-400 hover:text-amber-300 px-3 py-1.5 bg-amber-500/5 hover:bg-amber-500/15 border border-amber-500/20 rounded transition-colors cursor-help flex items-center gap-1 font-bold">
+              <span>💡</span> 擷圖保存提示
+            </button>
+            <div className="absolute right-0 mt-2 w-64 bg-slate-950/95 border border-amber-500/30 rounded-lg shadow-2xl p-3 z-30 flex flex-col gap-1.5 backdrop-blur-xl opacity-0 pointer-events-none group-hover/hint:opacity-100 group-hover/hint:pointer-events-auto transition-opacity duration-200">
+              <div className="text-[11px] text-amber-400 font-bold border-b border-white/10 pb-1 select-none">📸 使用原生擷圖可獲得最完美畫質</div>
+              <p className="text-[10px] text-slate-300 leading-relaxed">
+                為避免圖片失真，建議您放大畫面直接使用系統自帶快捷鍵擷圖，即可獲得 100% 乾淨無瑕的向量箭頭與文字：
+              </p>
+              <div className="text-[10px] text-slate-400 space-y-1 mt-1 font-mono">
+                <div>💻 <span className="text-cyan-300 font-bold">Windows:</span> Shift + Win + S</div>
+                <div>🍎 <span className="text-emerald-300 font-bold">macOS:</span> Command + Shift + 4</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative">
+            <button 
+              onClick={() => setShowArrangeMenu(!showArrangeMenu)} 
+              className="text-xs text-cyan-400 hover:text-cyan-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold"
+            >
+              <span>🪄</span> 整理佈局
             </button>
             
-            <div className="relative">
-              <button 
-                onClick={() => setShowArrangeMenu(!showArrangeMenu)} 
-                className="text-xs text-cyan-400 hover:text-cyan-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold"
-              >
-                <span>🪄</span> 整理佈局
-              </button>
-              
-              {showArrangeMenu && (
-                <div className="absolute right-0 mt-2 w-48 bg-slate-950/95 border border-white/15 rounded-lg shadow-2xl p-1 z-30 flex flex-col gap-1 backdrop-blur-xl animate-fade-in animate-duration-200">
-                  <div className="px-2 py-1 text-[10px] text-slate-500 font-bold border-b border-white/5 uppercase select-none">選擇排序方式</div>
-                  <button 
-                    onClick={() => arrangeLayout('force')}
-                    className="w-full text-left text-xs px-3 py-2 rounded text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 transition-colors cursor-pointer flex items-center gap-2"
-                    title="依據角色的連線關係，自動拉近並排斥重疊節點"
-                  >
-                    <span>⚡</span> 關係力導向排列
-                  </button>
-                  <button 
-                    onClick={() => arrangeLayout('circular')}
-                    className="w-full text-left text-xs px-3 py-2 rounded text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 transition-colors cursor-pointer flex items-center gap-2"
-                    title="將角色均勻環繞成圓圈，適合觀察核心或同心圓關係"
-                  >
-                    <span>🌀</span> 圓圈環狀排列
-                  </button>
-                  <button 
-                    onClick={() => arrangeLayout('grid')}
-                    className="w-full text-left text-xs px-3 py-2 rounded text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 transition-colors cursor-pointer flex items-center gap-2"
-                    title="將角色整齊放置在網格矩陣中，方便清晰預覽"
-                  >
-                    <span>🎴</span> 整齊網格排列
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <button onClick={() => setOffset({x: 0, y: 0})} className="text-xs text-slate-300 hover:text-white px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">📍 回原點</button>
-            <button onClick={() => { setNodes([]); setEdges([]); }} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">🗑️ 清空畫布</button>
+            {showArrangeMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-slate-950/95 border border-white/15 rounded-lg shadow-2xl p-1 z-30 flex flex-col gap-1 backdrop-blur-xl animate-fade-in animate-duration-200">
+                <div className="px-2 py-1 text-[10px] text-slate-500 font-bold border-b border-white/5 uppercase select-none">選擇排序方式</div>
+                <button 
+                  onClick={() => arrangeLayout('force')}
+                  className="w-full text-left text-xs px-3 py-2 rounded text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 transition-colors cursor-pointer flex items-center gap-2"
+                  title="依據角色的連線關係，自動拉近並排斥重疊節點"
+                >
+                  <span>⚡</span> 關係力導向排列
+                </button>
+                <button 
+                  onClick={() => arrangeLayout('circular')}
+                  className="w-full text-left text-xs px-3 py-2 rounded text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 transition-colors cursor-pointer flex items-center gap-2"
+                  title="將角色均勻環繞成圓圈，適合觀察核心或同心圓關係"
+                >
+                  <span>🌀</span> 圓圈環狀排列
+                </button>
+                <button 
+                  onClick={() => arrangeLayout('grid')}
+                  className="w-full text-left text-xs px-3 py-2 rounded text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 transition-colors cursor-pointer flex items-center gap-2"
+                  title="將角色整齊放置在網格矩陣中，方便清晰預覽"
+                >
+                  <span>🎴</span> 整齊網格排列
+                </button>
+              </div>
+            )}
           </div>
-        )}
+
+          <button onClick={() => setOffset({x: 0, y: 0})} className="text-xs text-slate-300 hover:text-white px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">📍 回原點</button>
+          <button onClick={() => { setNodes([]); setEdges([]); }} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">🗑️ 清空畫布</button>
+        </div>
       </div>
 
       {(cpModal.isOpen || editingEdge) && (() => {
@@ -1347,16 +1338,6 @@ export default function NexusCanvas({
           </div>
         );
       })()}
-
-      {isCapturing && (
-        <div className="absolute inset-0 bg-black/85 backdrop-blur-sm z-50 flex flex-col items-center justify-center p-4">
-          <div className="bg-slate-900/95 border border-cyan-500/30 rounded-2xl p-6 max-w-sm text-center shadow-2xl">
-            <div className="text-4xl mb-3 animate-spin duration-1000 inline-block">🔮</div>
-            <h3 className="text-lg font-bold text-cyan-400 mb-2">正在生成關係網圖片</h3>
-            <p className="text-xs text-slate-400 leading-relaxed">請稍候，我們正在為您繪製並下載高品質關係網絡圖（寬高與您的畫布同步）...</p>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
