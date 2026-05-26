@@ -54,6 +54,9 @@ export interface CanvasEdge {
   target: string;
   label: string;
   color: string;
+  relationType?: 'forward' | 'backward' | 'bidirectional';
+  targetLabel?: string;
+  targetColor?: string;
 }
 
 export interface CPEntity {

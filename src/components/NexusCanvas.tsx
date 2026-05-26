@@ -4,6 +4,230 @@ import { defaultCharacter, getPointerPos, getRadarPoint } from '../constants';
 import localforage from 'localforage';
 import html2canvas from 'html2canvas';
 
+export function convertOklchToRgbInText(text: string): string {
+  const oklchRegex = /oklch\(\s*([0-9.]+%?)[,\s]+([0-9.]+)[,\s]+([0-9.]+)(?:\s*[\/,]\s*([0-9.]+%?))?\s*\)/g;
+  
+  return text.replace(oklchRegex, (match, lStr, cStr, hStr, aStr) => {
+    try {
+      let l = parseFloat(lStr);
+      if (lStr.endsWith('%')) {
+        l = l / 100;
+      }
+      const c = parseFloat(cStr);
+      const h = parseFloat(hStr);
+      
+      let a = 1;
+      if (aStr) {
+        a = parseFloat(aStr);
+        if (aStr.endsWith('%')) {
+          a = a / 100;
+        }
+      }
+      
+      if (isNaN(l) || isNaN(c) || isNaN(h)) {
+        return 'rgb(30, 41, 59)';
+      }
+
+      // OKLCH -> OKLAB
+      const hRad = h * Math.PI / 180;
+      const a_ = c * Math.cos(hRad);
+      const b_ = c * Math.sin(hRad);
+      
+      // OKLAB -> LMS
+      const l_ = l + 0.3963377774 * a_ + 0.2158037573 * b_;
+      const m_ = l - 0.1055613458 * a_ - 0.0638541728 * b_;
+      const s_ = l - 0.0894841775 * a_ - 1.2914855480 * b_;
+      
+      const l3 = l_ * l_ * l_;
+      const m3 = m_ * m_ * m_;
+      const s3 = s_ * s_ * s_;
+      
+      // LMS -> Linear sRGB (using standard transfer matrix)
+      const rL = +4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3;
+      const gL = -1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3;
+      const bL = -0.0041960863 * l3 - 0.7034186147 * m3 + 1.7076147010 * s3;
+      
+      const f = (x: number) => {
+        if (x <= 0) return 0;
+        if (x >= 1) return 255;
+        return Math.round(255 * (x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055));
+      };
+      
+      const r = isNaN(f(rL)) ? 30 : f(rL);
+      const g = isNaN(f(gL)) ? 41 : f(gL);
+      const b = isNaN(f(bL)) ? 59 : f(bL);
+      
+      if (a === 1) {
+        return `rgb(${r}, ${g}, ${b})`;
+      } else {
+        return `rgba(${r}, ${g}, ${b}, ${a})`;
+      }
+    } catch (e) {
+      console.warn('Oklch conversion failed for match:', match, e);
+      return 'rgb(30, 41, 59)';
+    }
+  });
+}
+
+export function getRelationEmoji(label: string): string {
+  if (!label) return '💬';
+  const val = label.toLowerCase();
+  
+  // CP, Romance, Marriage
+  if (
+    val.includes('相方') || 
+    val.includes('cp') || 
+    val.includes('情侶') || 
+    val.includes('戀人') || 
+    val.includes('愛人') || 
+    val.includes('夫妻') || 
+    val.includes('結婚') || 
+    val.includes('伴侶') || 
+    val.includes('重婚') || 
+    val.includes('誓約') ||
+    val.includes('配偶') ||
+    val.includes('老公') ||
+    val.includes('老婆') ||
+    val.includes('契合') ||
+    val.includes('求婚') ||
+    val.includes('定情')
+  ) {
+    return '💖';
+  }
+  
+  // Rival, Enemy, Hostile
+  if (
+    val.includes('宿敵') || 
+    val.includes('死敵') || 
+    val.includes('對頭') || 
+    val.includes('敵對') || 
+    val.includes('敵人') || 
+    val.includes('仇人') || 
+    val.includes('恨') || 
+    val.includes('競爭') ||
+    val.includes('仇敵') ||
+    val.includes('宿命') ||
+    val.includes('死對頭') ||
+    val.includes('討厭')
+  ) {
+    return '⚔️';
+  }
+  
+  // Master-Servant, Boss, Superior
+  if (
+    val.includes('主僕') || 
+    val.includes('隨從') || 
+    val.includes('僱員') || 
+    val.includes('僕人') || 
+    val.includes('主人') || 
+    val.includes('下屬') ||
+    val.includes('老闆') ||
+    val.includes('上司') ||
+    val.includes('部下') ||
+    val.includes('僕從')
+  ) {
+    return '👑';
+  }
+  
+  // Mentor, Student, Teacher
+  if (
+    val.includes('導師') || 
+    val.includes('師徒') || 
+    val.includes('徒弟') || 
+    val.includes('學生') || 
+    val.includes('師父') || 
+    val.includes('老師') || 
+    val.includes('弟子') ||
+    val.includes('學習') ||
+    val.includes('授課') ||
+    val.includes('教導')
+  ) {
+    return '📖';
+  }
+  
+  // Comrade, Partner, Battle Buddy
+  if (
+    val.includes('戰友') || 
+    val.includes('夥伴') || 
+    val.includes('隊友') || 
+    val.includes('搭檔') || 
+    val.includes('共犯') || 
+    val.includes('冒險') ||
+    val.includes('同行') ||
+    val.includes('盟友') ||
+    val.includes('冒險夥伴')
+  ) {
+    return '🛡️';
+  }
+  
+  // Family, Relatives
+  if (
+    val.includes('家人') || 
+    val.includes('兄弟') || 
+    val.includes('姊妹') || 
+    val.includes('父子') || 
+    val.includes('母女') || 
+    val.includes('血親') || 
+    val.includes('親戚') || 
+    val.includes('收養') ||
+    val.includes('養子') ||
+    val.includes('養女') ||
+    val.includes('妹妹') ||
+    val.includes('弟弟') ||
+    val.includes('姊姊') ||
+    val.includes('哥哥') ||
+    val.includes('父母') ||
+    val.includes('雙親')
+  ) {
+    return '🏠';
+  }
+  
+  // Crush, Secret Admirer, Admiration
+  if (
+    val.includes('暗戀') || 
+    val.includes('單戀') || 
+    val.includes('憧憬') || 
+    val.includes('崇拜') || 
+    val.includes('仰慕') || 
+    val.includes('暗中') ||
+    val.includes('好感') ||
+    val.includes('迷戀') ||
+    val.includes('思慕')
+  ) {
+    return '💗';
+  }
+  
+  // Friends, Close Friends
+  if (
+    val.includes('親友') || 
+    val.includes('朋友') || 
+    val.includes('友人') || 
+    val.includes('死黨') || 
+    val.includes('閨蜜') || 
+    val.includes('社交') ||
+    val.includes('摯友') ||
+    val.includes('密友') ||
+    val.includes('玩伴')
+  ) {
+    return '🤝';
+  }
+  
+  // Acquaintance, Ordinary, Passing
+  if (
+    val.includes('相識') || 
+    val.includes('普通') || 
+    val.includes('點頭') || 
+    val.includes('路人') || 
+    val.includes('認識') ||
+    val.includes('見過') ||
+    val.includes('路過')
+  ) {
+    return '💬';
+  }
+  
+  return '✨'; // default sparkling/mysterious connection
+}
+
 interface NexusCanvasProps {
   characters: Character[];
   npcs: Character[];
@@ -32,22 +256,109 @@ export default function NexusCanvas({
       // Give time for UI feedback to render
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      const canvas = await html2canvas(canvasRef.current, {
-        useCORS: true,
-        allowTaint: false,
-        backgroundColor: '#020617', // Match the main slate-950 canvas background
-        scale: 2, // Capture at 2x scale for higher quality crisp text and images
-        logging: false,
-        onclone: (clonedDoc) => {
-          // Hide all control panel/navigation buttons in the downloaded image
-          const sidebarUiElements = clonedDoc.querySelectorAll('.sidebar-ui');
-          sidebarUiElements.forEach(el => {
-            (el as HTMLElement).style.display = 'none';
-          });
-        }
-      });
+      const runCapture = async (bypassCorsIssues: boolean) => {
+        return await html2canvas(canvasRef.current!, {
+          useCORS: true,
+          allowTaint: false,
+          backgroundColor: '#020617', // Match the main slate-950 canvas background
+          scale: 2, // Capture at 2x scale for higher quality crisp text and images
+          logging: false,
+          onclone: (clonedDoc) => {
+            // Fix OKLCH colors so html2canvas doesn't crash on unrecognized colors in Tailwind v4
+            const defaultView = clonedDoc.defaultView;
+            if (defaultView && defaultView.getComputedStyle) {
+              const originalGetComputedStyle = defaultView.getComputedStyle;
+              defaultView.getComputedStyle = function (elt, pseudoElt) {
+                const style = originalGetComputedStyle.call(this, elt, pseudoElt);
+                return new Proxy(style, {
+                  get(target, prop, receiver) {
+                    if (prop === 'getPropertyValue') {
+                      return function(propertyName: string) {
+                        const val = target.getPropertyValue(propertyName);
+                        if (typeof val === 'string' && val.includes('oklch')) {
+                          return convertOklchToRgbInText(val);
+                        }
+                        return val;
+                      };
+                    }
+                    const val = Reflect.get(target, prop, receiver);
+                    if (typeof val === 'string' && val.includes('oklch')) {
+                      return convertOklchToRgbInText(val);
+                    }
+                    if (typeof val === 'function') {
+                      return val.bind(target);
+                    }
+                    return val;
+                  }
+                });
+              };
+            }
+
+            // Also preprocess stylesheet elements inside the cloned document as a double layer of defense
+            const styleTags = clonedDoc.querySelectorAll('style');
+            styleTags.forEach(styleTag => {
+              if (styleTag.textContent && styleTag.textContent.includes('oklch')) {
+                styleTag.textContent = convertOklchToRgbInText(styleTag.textContent);
+              }
+            });
+
+            // Hide all control panel/navigation buttons in the downloaded image
+            const sidebarUiElements = clonedDoc.querySelectorAll('.sidebar-ui');
+            sidebarUiElements.forEach(el => {
+              (el as HTMLElement).style.display = 'none';
+            });
+
+            // Handle images carefully to avoid CORS/Taint errors
+            const images = clonedDoc.querySelectorAll('img');
+            images.forEach(img => {
+              const src = img.getAttribute('src') || '';
+              // Detect cross-origin URLs (starts with http but doesn't match local origin, and is not a safe base64/blob)
+              const isExternal = src.startsWith('http') && !src.startsWith(window.location.origin);
+              
+              if (isExternal) {
+                if (bypassCorsIssues) {
+                  // Fallback: Replace external image with a safe CSS placeholder
+                  const parent = img.parentNode;
+                  if (parent) {
+                    const fallback = clonedDoc.createElement('div');
+                    fallback.className = "w-full h-full flex items-center justify-center bg-slate-800 text-slate-400 font-bold text-lg rounded-full";
+                    fallback.innerText = "👤";
+                    fallback.style.width = "100%";
+                    fallback.style.height = "100%";
+                    fallback.style.display = "flex";
+                    fallback.style.alignItems = "center";
+                    fallback.style.justifyContent = "center";
+                    fallback.style.backgroundColor = "#1e293b";
+                    fallback.style.borderRadius = "9999px";
+                    parent.replaceChild(fallback, img);
+                  }
+                } else {
+                  // Standard attempt: Set crossorigin attribute to anonymous
+                  img.setAttribute('crossorigin', 'anonymous');
+                }
+              }
+            });
+          }
+        });
+      };
+
+      let canvas;
+      try {
+        canvas = await runCapture(false);
+      } catch (firstErr) {
+        console.warn('First render failed, trying CORS fallback...', firstErr);
+        canvas = await runCapture(true);
+      }
+
+      let dataUrl;
+      try {
+        dataUrl = canvas.toDataURL('image/png');
+      } catch (taintErr) {
+        console.warn('Canvas is tainted, executing strict local-only fallback...', taintErr);
+        canvas = await runCapture(true);
+        dataUrl = canvas.toDataURL('image/png');
+      }
       
-      const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `ff14_nexus_relationships_${Date.now()}.png`;
       link.href = dataUrl;
@@ -70,17 +381,148 @@ export default function NexusCanvas({
   const [connecting, setConnecting] = useState<{ sourceId: string; startX: number; startY: number } | null>(null); 
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   
-  const [cpModal, setCpModal] = useState<{ isOpen: boolean; source: string | null; target: string | null; label: string; color: string }>({ 
+  const [cpModal, setCpModal] = useState<{ 
+    isOpen: boolean; 
+    source: string | null; 
+    target: string | null; 
+    label: string; 
+    color: string;
+    relationType: 'forward' | 'backward' | 'bidirectional';
+    targetLabel: string;
+    targetColor: string;
+  }>({ 
     isOpen: false, 
     source: null, 
     target: null, 
     label: '相識', 
-    color: '#06b6d4' 
+    color: '#06b6d4',
+    relationType: 'forward',
+    targetLabel: '',
+    targetColor: '#10b981'
   });
   
   const [editingEdge, setEditingEdge] = useState<CanvasEdge | null>(null); 
   const [editingNode, setEditingNode] = useState<CanvasNode | null>(null); 
   const [activeTab, setActiveTab] = useState<'pc' | 'friend' | 'npc'>('pc'); 
+  const [showArrangeMenu, setShowArrangeMenu] = useState(false);
+
+  const arrangeLayout = (type: 'circular' | 'grid' | 'force') => {
+    if (nodes.length === 0) return;
+    
+    // Calculate current average positions on canvas to keep viewport centered where it was
+    let avgX = nodes.reduce((sum, n) => sum + n.x, 0) / nodes.length;
+    let avgY = nodes.reduce((sum, n) => sum + n.y, 0) / nodes.length;
+
+    // Reset coordinates if unreasonable (e.g., NaN or Infinity)
+    if (isNaN(avgX) || !isFinite(avgX)) avgX = window.innerWidth / 2 - 100;
+    if (isNaN(avgY) || !isFinite(avgY)) avgY = window.innerHeight / 2 - 35;
+
+    let arrangedNodes = [...nodes];
+
+    if (type === 'circular') {
+      // Circle radius increases dynamically based on node count to prevent overlaps
+      const radius = Math.max(220, nodes.length * 45);
+      arrangedNodes = nodes.map((node, index) => {
+        const angle = (index / nodes.length) * 2 * Math.PI;
+        return {
+          ...node,
+          x: Math.round(avgX + radius * Math.cos(angle)),
+          y: Math.round(avgY + radius * Math.sin(angle))
+        };
+      });
+    } else if (type === 'grid') {
+      // Matrix-style rows and columns layout
+      const cols = Math.ceil(Math.sqrt(nodes.length));
+      const colWidth = 260;
+      const rowHeight = 135;
+      const startX = avgX - ((cols - 1) * colWidth) / 2;
+      const startY = avgY - (Math.ceil(nodes.length / cols) * rowHeight) / 2;
+
+      arrangedNodes = nodes.map((node, index) => {
+        const r = Math.floor(index / cols);
+        const c = index % cols;
+        return {
+          ...node,
+          x: Math.round(startX + c * colWidth),
+          y: Math.round(startY + r * rowHeight)
+        };
+      });
+    } else if (type === 'force') {
+      // Force-directed simulation in-memory for instant response
+      let tempNodes = nodes.map(n => ({ id: n.id, x: n.x, y: n.y, vx: 0, vy: 0 }));
+      
+      for (let iter = 0; iter < 150; iter++) {
+        // Repulsion force to push nodes away from each other
+        for (let i = 0; i < tempNodes.length; i++) {
+          for (let j = i + 1; j < tempNodes.length; j++) {
+            const n1 = tempNodes[i];
+            const n2 = tempNodes[j];
+            const dx = n1.x - n2.x;
+            const dy = n1.y - n2.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            
+            // Nodes are 200px wide and 70px high, so repelling needs to be strong
+            const minDist = 260; 
+            if (dist < minDist) {
+              const force = ((minDist - dist) / dist) * 0.6;
+              const fx = dx * force;
+              const fy = dy * force;
+              n1.vx += fx;
+              n1.vy += fy;
+              n2.vx -= fx;
+              n2.vy -= fy;
+            }
+          }
+        }
+
+        // Attraction force pulls connected nodes closer
+        edges.forEach(edge => {
+          const n1 = tempNodes.find(n => n.id === edge.source);
+          const n2 = tempNodes.find(n => n.id === edge.target);
+          if (n1 && n2) {
+            const dx = n1.x - n2.x;
+            const dy = n1.y - n2.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const desiredDist = 280;
+            if (dist > desiredDist) {
+              const force = ((dist - desiredDist) / dist) * 0.12;
+              const fx = dx * force;
+              const fy = dy * force;
+              n1.vx -= fx;
+              n1.vy -= fy;
+              n2.vx += fx;
+              n2.vy += fy;
+            }
+          }
+        });
+
+        // Center gravity pulls everything toward center
+        tempNodes.forEach(n => {
+          const dx = n.x - avgX;
+          const dy = n.y - avgY;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          n.vx -= (dx / dist) * 0.25;
+          n.vy -= (dy / dist) * 0.25;
+        });
+
+        // Apply velocity with air resistance dampening
+        tempNodes.forEach(n => {
+          n.x += Math.max(-60, Math.min(60, n.vx));
+          n.y += Math.max(-35, Math.min(35, n.vy));
+          n.vx *= 0.45;
+          n.vy *= 0.45;
+        });
+      }
+
+      arrangedNodes = nodes.map(n => {
+        const tn = tempNodes.find(t => t.id === n.id);
+        return tn ? { ...n, x: Math.round(tn.x), y: Math.round(tn.y) } : n;
+      });
+    }
+
+    setNodes(arrangedNodes);
+    setShowArrangeMenu(false);
+  };
 
   useEffect(() => {
     const loadCanvasData = async () => {
@@ -173,7 +615,16 @@ export default function NexusCanvas({
     e.stopPropagation();
     setDraggingNode(null); 
     if (connecting && connecting.sourceId !== targetNodeId) {
-      setCpModal({ isOpen: true, source: connecting.sourceId, target: targetNodeId, label: '相識', color: '#06b6d4' });
+      setCpModal({ 
+        isOpen: true, 
+        source: connecting.sourceId, 
+        target: targetNodeId, 
+        label: '相識', 
+        color: '#06b6d4',
+        relationType: 'forward',
+        targetLabel: '',
+        targetColor: '#10b981'
+      });
     }
     setConnecting(null);
   };
@@ -193,7 +644,16 @@ export default function NexusCanvas({
         );
 
         if (targetNode && connecting.sourceId !== targetNode.id) {
-          setCpModal({ isOpen: true, source: connecting.sourceId, target: targetNode.id, label: '相識', color: '#06b6d4' });
+          setCpModal({ 
+            isOpen: true, 
+            source: connecting.sourceId, 
+            target: targetNode.id, 
+            label: '相識', 
+            color: '#06b6d4',
+            relationType: 'forward',
+            targetLabel: '',
+            targetColor: '#10b981'
+          });
         }
       }
       setConnecting(null);
@@ -207,19 +667,36 @@ export default function NexusCanvas({
       source: cpModal.source, 
       target: cpModal.target, 
       label: cpModal.label, 
-      color: cpModal.color 
+      color: cpModal.color,
+      relationType: cpModal.relationType,
+      targetLabel: cpModal.relationType === 'bidirectional' ? cpModal.targetLabel : undefined,
+      targetColor: cpModal.relationType === 'bidirectional' ? cpModal.targetColor : undefined
     };
     const exists = edges.find(edge => 
       (edge.source === newEdge.source && edge.target === newEdge.target) || 
       (edge.source === newEdge.target && edge.target === newEdge.source)
     );
     if (!exists) setEdges([...edges, newEdge]);
-    setCpModal({ ...cpModal, isOpen: false, source: null, target: null });
+    setCpModal({ 
+      isOpen: false, 
+      source: null, 
+      target: null, 
+      label: '相識', 
+      color: '#06b6d4',
+      relationType: 'forward',
+      targetLabel: '',
+      targetColor: '#10b981'
+    });
   };
 
   const openEdgeEdit = (e: React.MouseEvent | React.TouchEvent, edge: CanvasEdge) => {
     e.stopPropagation();
-    setEditingEdge({ ...edge });
+    setEditingEdge({ 
+      ...edge,
+      relationType: edge.relationType || 'forward',
+      targetLabel: edge.targetLabel || '',
+      targetColor: edge.targetColor || '#10b981'
+    });
   };
 
   const saveEdgeEdit = () => {
@@ -250,58 +727,157 @@ export default function NexusCanvas({
       const srcNode = nodes.find(n => n.id === edge.source);
       const tgtNode = nodes.find(n => n.id === edge.target);
       if (!srcNode || !tgtNode) return null;
-      
-      const startX = srcNode.x + 200; 
-      const startY = srcNode.y + 35;
-      const endX = tgtNode.x;
-      const endY = tgtNode.y + 35;
-      const midX = (startX + endX) / 2;
-      const midY = (startY + endY) / 2;
-      const pathData = `M ${startX} ${startY} C ${startX + 80} ${startY}, ${endX - 80} ${endY}, ${endX} ${endY}`;
 
-      return (
-        <g key={edge.id} className="group">
-          <path 
-            d={pathData} 
-            stroke="transparent" 
-            strokeWidth={20} 
-            fill="none" 
-            className="cursor-pointer canvas-edge pointer-events-auto" 
-            onClick={(e) => openEdgeEdit(e, edge)} 
-            onTouchEnd={(e) => { e.stopPropagation(); openEdgeEdit(e, edge); }} 
-          />
-          <path 
-            d={pathData} 
-            stroke={edge.color} 
-            strokeWidth={2} 
-            fill="none" 
-            className="drop-shadow-[0_0_5px_currentColor] pointer-events-none" 
-            style={{ color: edge.color }} 
-          />
-          
-          <g 
-            transform={`translate(${midX}, ${midY})`} 
-            onClick={(e) => openEdgeEdit(e, edge)} 
-            onTouchEnd={(e) => { e.stopPropagation(); openEdgeEdit(e, edge); }} 
-            className="cursor-pointer canvas-edge group/label pointer-events-auto"
-          >
-            <rect 
-              x="-50" 
-              y="-14" 
-              width="100" 
-              height="28" 
-              rx="14" 
-              fill="#0f172a" 
-              fillOpacity="0.9" 
-              stroke={edge.color} 
-              strokeWidth={1} 
-              className="transition-all group-hover/label:stroke-white group-hover/label:stroke-[1.5px]" 
+      const isBiDir = edge.relationType === 'bidirectional';
+
+      // Helper to render a directed path (fromNode ➔ toNode)
+      const renderSinglePath = (
+        id: string,
+        fromNode: CanvasNode,
+        toNode: CanvasNode,
+        label: string,
+        color: string,
+        isBowed: boolean,
+        bowDirection: number
+      ) => {
+        // Calculate centers
+        const centerFrom = { x: fromNode.x + 100, y: fromNode.y + 35 };
+        const centerTo = { x: toNode.x + 100, y: toNode.y + 35 };
+
+        // Determine left or right ports based on relative center positions
+        const startX = centerFrom.x < centerTo.x ? fromNode.x + 200 : fromNode.x;
+        const startY = fromNode.y + 35;
+        const endX = centerFrom.x < centerTo.x ? toNode.x : toNode.x + 200;
+        const endY = toNode.y + 35;
+
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+        // Shrink distance of 10px so arrow markers are fully visible beside node cards
+        const shrink = 10;
+        const actualStartX = startX + (dx / dist) * shrink;
+        const actualStartY = startY + (dy / dist) * shrink;
+        const actualEndX = endX - (dx / dist) * shrink;
+        const actualEndY = endY - (dy / dist) * shrink;
+
+        const actualDx = actualEndX - actualStartX;
+        const actualDy = actualEndY - actualStartY;
+        const actualDist = Math.sqrt(actualDx * actualDx + actualDy * actualDy) || 1;
+
+        // Normal vector
+        const nx = -actualDy / actualDist;
+        const ny = actualDx / actualDist;
+
+        // Symmetric bow offset
+        const bow = isBowed ? 35 : 0;
+        const offsetDist = bow * bowDirection;
+
+        // Control points
+        const isFromLeft = centerFrom.x < centerTo.x;
+        const cpExt = isFromLeft ? 80 : -80;
+
+        const cp1x = actualStartX + cpExt + nx * offsetDist;
+        const cp1y = actualStartY + ny * offsetDist;
+        const cp2x = actualEndX - cpExt + nx * offsetDist;
+        const cp2y = actualEndY + ny * offsetDist;
+
+        const pathData = `M ${actualStartX} ${actualStartY} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${actualEndX} ${actualEndY}`;
+
+        const getBezierPoint = (t: number, x0: number, y0: number, x1: number, y1: number, x2: number, y2: number, x3: number, y3: number) => {
+          const mt = 1 - t;
+          const mt2 = mt * mt;
+          const mt3 = mt2 * mt;
+          const t2 = t * t;
+          const t3 = t2 * t;
+          return {
+            x: mt3 * x0 + 3 * mt2 * t * x1 + 3 * mt * t2 * x2 + t3 * x3,
+            y: mt3 * y0 + 3 * mt2 * t * y1 + 3 * mt * t2 * y2 + t3 * y3
+          };
+        };
+
+        const pt = getBezierPoint(0.5, actualStartX, actualStartY, cp1x, cp1y, cp2x, cp2y, actualEndX, actualEndY);
+
+        const cleanLabelStr = `${getRelationEmoji(label)} ${label}`;
+
+        // Width logic
+        let width = 25;
+        for (let i = 0; i < cleanLabelStr.length; i++) {
+          const charCode = cleanLabelStr.charCodeAt(i);
+          if (charCode > 255) {
+            width += 9.5;
+          } else {
+            width += 6.5;
+          }
+        }
+        const labelWidth = Math.max(90, width);
+        const halfWidth = labelWidth / 2;
+
+        return (
+          <g key={id} className="group">
+            {/* Click layer/interaction track */}
+            <path 
+              d={pathData} 
+              stroke="transparent" 
+              strokeWidth={20} 
+              fill="none" 
+              className="cursor-pointer canvas-edge pointer-events-auto" 
+              onClick={(e) => openEdgeEdit(e, edge)} 
+              onTouchEnd={(e) => { e.stopPropagation(); openEdgeEdit(e, edge); }} 
             />
-            <text x="0" y="4" fill="#f8fafc" fontSize="12" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{edge.label}</text>
-            <text x="40" y="-14" fill="#94a3b8" fontSize="10" className="opacity-0 group-hover/label:opacity-100 transition-opacity drop-shadow-md">✎</text>
+            {/* Visible connection path with arrow at target */}
+            <path 
+              d={pathData} 
+              stroke={color} 
+              strokeWidth={2} 
+              fill="none" 
+              className="drop-shadow-[0_0_5px_currentColor] pointer-events-none transition-all group-hover:stroke-[3px]" 
+              style={{ color }} 
+              markerEnd="url(#arrow-forward)"
+            />
+            
+            {/* Label in the middle */}
+            <g 
+              transform={`translate(${pt.x}, ${pt.y})`} 
+              onClick={(e) => openEdgeEdit(e, edge)} 
+              onTouchEnd={(e) => { e.stopPropagation(); openEdgeEdit(e, edge); }} 
+              className="cursor-pointer canvas-edge group/lbl pointer-events-auto"
+            >
+              <rect 
+                x={-halfWidth} 
+                y="-13" 
+                width={labelWidth} 
+                height="26" 
+                rx="13" 
+                fill="#0f172a" 
+                fillOpacity="0.95" 
+                stroke={color} 
+                strokeWidth={1.2} 
+                className="transition-all group-hover/lbl:stroke-white group-hover/lbl:stroke-[1.5px] shadow-lg" 
+              />
+              <text x="0" y="3" fill="#f8fafc" fontSize="11" fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{cleanLabelStr}</text>
+              <text x={halfWidth - 10} y="-11" fill="#94a3b8" fontSize="8" className="opacity-0 group-hover/lbl:opacity-100 transition-opacity drop-shadow-md">✎</text>
+            </g>
           </g>
-        </g>
-      );
+        );
+      };
+
+      if (isBiDir) {
+        return (
+          <g key={edge.id}>
+            {/* Forward Line: A to B, bowed (direction 1) */}
+            {renderSinglePath(`${edge.id}-fwd`, srcNode, tgtNode, edge.label, edge.color, true, 1)}
+            {/* Backward Line: B to A, bowed (direction 1, same direction is opposite coordinate system shift) */}
+            {renderSinglePath(`${edge.id}-bwd`, tgtNode, srcNode, edge.targetLabel || '未定義', edge.targetColor || edge.color, true, 1)}
+          </g>
+        );
+      } else {
+        // Unidirectional
+        const isForward = !edge.relationType || edge.relationType === 'forward';
+        const fromNode = isForward ? srcNode : tgtNode;
+        const toNode = isForward ? tgtNode : srcNode;
+        return renderSinglePath(edge.id, fromNode, toNode, edge.label, edge.color, false, 0);
+      }
     });
   };
 
@@ -463,6 +1039,14 @@ export default function NexusCanvas({
 
       <div ref={canvasRef} className="flex-1 relative overflow-hidden bg-[radial-gradient(#1e293b_1px,transparent_1px)] bg-[size:24px_24px] touch-none" style={{ backgroundPosition: `${offset.x}px ${offset.y}px` }}>
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+          <defs>
+            <marker id="arrow-forward" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 1.5 L 10 5 L 0 8.5 Z" fill="currentColor" />
+            </marker>
+            <marker id="arrow-backward" viewBox="0 0 10 10" refX="0" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1.5 L 10 5 L 0 8.5 Z" fill="currentColor" />
+            </marker>
+          </defs>
           <g transform={`translate(${offset.x}, ${offset.y})`}>
             {renderEdges()}
             {connecting && <path d={`M ${connecting.startX} ${connecting.startY} C ${connecting.startX + 50} ${connecting.startY}, ${mousePos.x - 50} ${mousePos.y}, ${mousePos.x} ${mousePos.y}`} stroke="#4de0ff" strokeWidth="2" strokeDasharray="5,5" fill="none" className="opacity-80 animate-pulse" />}
@@ -488,6 +1072,7 @@ export default function NexusCanvas({
                         src={charData.imageUrl} 
                         alt="Avatar" 
                         className="w-full h-full object-cover" 
+                        crossOrigin="anonymous"
                         style={{ 
                           transform: `scale(${(charData.imageZoom ?? 100) / 100})`, 
                           objectPosition: `${charData.imagePosX ?? 50}% ${charData.imagePosY ?? 20}%`,
@@ -532,51 +1117,223 @@ export default function NexusCanvas({
           })}
         </div>
 
-        <div className="absolute top-4 right-4 z-20 bg-slate-900/80 p-2 rounded-lg border border-white/10 backdrop-blur-md flex gap-2 shadow-lg pointer-events-auto sidebar-ui">
+        <div className="absolute top-4 right-4 z-20 bg-slate-900/80 p-2 rounded-lg border border-white/10 backdrop-blur-md flex gap-2 shadow-lg pointer-events-auto sidebar-ui items-center">
           <button onClick={captureCanvas} className="text-xs text-emerald-400 hover:text-emerald-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold">
             <span>📸</span> 儲存為圖片
           </button>
+          
+          <div className="relative">
+            <button 
+              onClick={() => setShowArrangeMenu(!showArrangeMenu)} 
+              className="text-xs text-cyan-400 hover:text-cyan-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer flex items-center gap-1 font-bold"
+            >
+              <span>🪄</span> 整理佈局
+            </button>
+            
+            {showArrangeMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-slate-950/95 border border-white/15 rounded-lg shadow-2xl p-1 z-30 flex flex-col gap-1 backdrop-blur-xl animate-fade-in animate-duration-200">
+                <div className="px-2 py-1 text-[10px] text-slate-500 font-bold border-b border-white/5 uppercase select-none">選擇排序方式</div>
+                <button 
+                  onClick={() => arrangeLayout('force')}
+                  className="w-full text-left text-xs px-3 py-2 rounded text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 transition-colors cursor-pointer flex items-center gap-2"
+                  title="依據角色的連線關係，自動拉近並排斥重疊節點"
+                >
+                  <span>⚡</span> 關係力導向排列
+                </button>
+                <button 
+                  onClick={() => arrangeLayout('circular')}
+                  className="w-full text-left text-xs px-3 py-2 rounded text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200 transition-colors cursor-pointer flex items-center gap-2"
+                  title="將角色均勻環繞成圓圈，適合觀察核心或同心圓關係"
+                >
+                  <span>🌀</span> 圓圈環狀排列
+                </button>
+                <button 
+                  onClick={() => arrangeLayout('grid')}
+                  className="w-full text-left text-xs px-3 py-2 rounded text-amber-300 hover:bg-amber-500/10 hover:text-amber-200 transition-colors cursor-pointer flex items-center gap-2"
+                  title="將角色整齊放置在網格矩陣中，方便清晰預覽"
+                >
+                  <span>🎴</span> 整齊網格排列
+                </button>
+              </div>
+            )}
+          </div>
+
           <button onClick={() => setOffset({x: 0, y: 0})} className="text-xs text-slate-300 hover:text-white px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">📍 回原點</button>
           <button onClick={() => { setNodes([]); setEdges([]); }} className="text-xs text-red-400 hover:text-red-300 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded transition-colors cursor-pointer">🗑️ 清空畫布</button>
         </div>
       </div>
 
-      {(cpModal.isOpen || editingEdge) && (
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 pointer-events-auto sidebar-ui">
-          <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl p-6 w-96 shadow-2xl">
-            <h3 className="text-xl font-bold text-cyan-400 mb-4 border-b border-white/10 pb-2" style={{ fontFamily: "'Orbitron', 'Noto Serif TC', serif" }}>
-              {editingEdge ? '✏️ 編輯羈絆連線' : '🔗 定義羈絆連線'}
-            </h3>
-            <div className="mb-4">
-              <label className="block text-xs text-slate-400 mb-1">關係標籤</label>
-              <input 
-                type="text" 
-                value={editingEdge ? editingEdge.label : cpModal.label} 
-                onChange={e => editingEdge ? setEditingEdge({...editingEdge, label: e.target.value}) : setCpModal({...cpModal, label: e.target.value})} 
-                placeholder="例如：相方、宿敵" 
-                className="w-full bg-black/40 border border-white/20 rounded p-2 text-white outline-none focus:border-cyan-500 text-sm" 
-                autoFocus 
-              />
-            </div>
-            <div className="mb-6 flex gap-4 items-center">
-              <label className="text-xs text-slate-400">線條色彩</label>
-              <input 
-                type="color" 
-                value={editingEdge ? editingEdge.color : cpModal.color} 
-                onChange={e => editingEdge ? setEditingEdge({...editingEdge, color: e.target.value}) : setCpModal({...cpModal, color: e.target.value})} 
-                className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0" 
-              />
-            </div>
-            <div className="flex justify-end gap-3">
-              {editingEdge && <button onClick={deleteEdge} className="px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded transition-colors mr-auto cursor-pointer">刪除連線</button>}
-              <button onClick={() => editingEdge ? setEditingEdge(null) : setCpModal({...cpModal, isOpen: false, source: null, target: null})} className="px-4 py-2 text-sm text-slate-400 hover:text-white cursor-pointer">取消</button>
-              <button onClick={editingEdge ? saveEdgeEdit : confirmEdge} className="px-6 py-2 text-sm bg-cyan-600 hover:bg-cyan-500 text-white rounded font-bold shadow-[0_0_15px_rgba(34,211,238,0.5)] cursor-pointer">
-                {editingEdge ? '更新' : '連線'}
-              </button>
+      {(cpModal.isOpen || editingEdge) && (() => {
+        const modalSourceId = editingEdge ? editingEdge.source : cpModal.source;
+        const modalTargetId = editingEdge ? editingEdge.target : cpModal.target;
+        const modalSourceNode = nodes.find(n => n.id === modalSourceId);
+        const modalTargetNode = nodes.find(n => n.id === modalTargetId);
+        const modalCharA = modalSourceNode ? (characters.find(c => c.id === modalSourceNode.charId) || npcs.find(c => c.id === modalSourceNode.charId)) : null;
+        const modalCharB = modalTargetNode ? (characters.find(c => c.id === modalTargetNode.charId) || npcs.find(c => c.id === modalTargetNode.charId)) : null;
+        const modalNameA = modalCharA?.name || '角色 A';
+        const modalNameB = modalCharB?.name || '角色 B';
+        const relType = editingEdge ? (editingEdge.relationType || 'forward') : cpModal.relationType;
+
+        return (
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 pointer-events-auto sidebar-ui">
+            <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl p-6 w-[420px] max-w-full shadow-2xl animate-fade-in">
+              <h3 className="text-xl font-bold text-cyan-400 mb-4 border-b border-white/10 pb-2 flex items-center gap-2" style={{ fontFamily: "'Orbitron', 'Noto Serif TC', serif" }}>
+                <span>{editingEdge ? '✏️' : '🔗'}</span>
+                <span>{editingEdge ? '編輯羈絆關係' : '定義羈絆關係'}</span>
+              </h3>
+
+              {/* Direction selector */}
+              <div className="mb-5">
+                <label className="block text-xs text-slate-400 mb-1.5 font-bold">連線箭頭與關係方向</label>
+                <div className="grid grid-cols-3 gap-1 bg-black/40 p-1 rounded border border-white/10">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (editingEdge) {
+                        setEditingEdge({ ...editingEdge, relationType: 'forward' });
+                      } else {
+                        setCpModal({ ...cpModal, relationType: 'forward' });
+                      }
+                    }}
+                    className={`text-[10px] md:text-xs py-2 rounded transition-all font-bold cursor-pointer ${relType === 'forward' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-extrabold shadow-sm' : 'text-slate-400 border border-transparent hover:text-white'}`}
+                  >
+                    單向 (A ➔ B)
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (editingEdge) {
+                        setEditingEdge({ ...editingEdge, relationType: 'backward' });
+                      } else {
+                        setCpModal({ ...cpModal, relationType: 'backward' });
+                      }
+                    }}
+                    className={`text-[10px] md:text-xs py-2 rounded transition-all font-bold cursor-pointer ${relType === 'backward' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-extrabold shadow-sm' : 'text-slate-400 border border-transparent hover:text-white'}`}
+                  >
+                    單向 (B ➔ A)
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (editingEdge) {
+                        setEditingEdge({ ...editingEdge, relationType: 'bidirectional' });
+                      } else {
+                        setCpModal({ ...cpModal, relationType: 'bidirectional' });
+                      }
+                    }}
+                    className={`text-[10px] md:text-xs py-2 rounded transition-all font-bold cursor-pointer ${relType === 'bidirectional' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-extrabold shadow-sm' : 'text-slate-400 border border-transparent hover:text-white'}`}
+                  >
+                    雙向各自不同
+                  </button>
+                </div>
+              </div>
+
+              {relType === 'bidirectional' ? (
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: editingEdge ? editingEdge.color : cpModal.color }}></span>
+                      <span><span className="text-cyan-400 font-bold">{modalNameA}</span> 對 <span className="text-slate-300 font-bold">{modalNameB}</span> 的感覺：</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      value={editingEdge ? editingEdge.label : cpModal.label} 
+                      onChange={e => editingEdge ? setEditingEdge({...editingEdge, label: e.target.value}) : setCpModal({...cpModal, label: e.target.value})} 
+                      placeholder="例如：仰慕、最好的朋友" 
+                      className="w-full bg-black/40 border border-white/20 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500 text-sm" 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: editingEdge ? (editingEdge.targetColor || '#10b981') : cpModal.targetColor }}></span>
+                      <span><span className="text-emerald-400 font-bold">{modalNameB}</span> 對 <span className="text-slate-300 font-bold">{modalNameA}</span> 的感覺：</span>
+                    </label>
+                    <input 
+                      type="text" 
+                      value={editingEdge ? (editingEdge.targetLabel ?? '') : cpModal.targetLabel} 
+                      onChange={e => editingEdge ? setEditingEdge({...editingEdge, targetLabel: e.target.value}) : setCpModal({...cpModal, targetLabel: e.target.value})} 
+                      placeholder="例如：死對頭、宿敵、暗戀" 
+                      className="w-full bg-black/40 border border-white/20 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500 text-sm" 
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 bg-black/30 p-3 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 justify-between">
+                      <span className="text-[11px] text-slate-400 font-bold">A➔B 線條顏色</span>
+                      <input 
+                        type="color" 
+                        value={editingEdge ? editingEdge.color : cpModal.color} 
+                        onChange={e => editingEdge ? setEditingEdge({...editingEdge, color: e.target.value}) : setCpModal({...cpModal, color: e.target.value})} 
+                        className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0" 
+                      />
+                    </div>
+                    <div className="flex items-center gap-2 justify-between">
+                      <span className="text-[11px] text-slate-400 font-bold">B➔A 線條顏色</span>
+                      <input 
+                        type="color" 
+                        value={editingEdge ? (editingEdge.targetColor || '#10b981') : cpModal.targetColor} 
+                        onChange={e => editingEdge ? setEditingEdge({...editingEdge, targetColor: e.target.value}) : setCpModal({...cpModal, targetColor: e.target.value})} 
+                        className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0" 
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 mb-6">
+                  <div>
+                    <label className="block text-xs text-slate-400 mb-1 font-bold">
+                      {relType === 'forward' ? (
+                        <span>💡 <span className="text-cyan-400">{modalNameA}</span> 對 <span className="text-slate-200">{modalNameB}</span> 的關係：</span>
+                      ) : (
+                        <span>💡 <span className="text-emerald-400">{modalNameB}</span> 對 <span className="text-slate-200">{modalNameA}</span> 的關係：</span>
+                      )}
+                    </label>
+                    <input 
+                      type="text" 
+                      value={editingEdge ? editingEdge.label : cpModal.label} 
+                      onChange={e => editingEdge ? setEditingEdge({...editingEdge, label: e.target.value}) : setCpModal({...cpModal, label: e.target.value})} 
+                      placeholder="例如：親友、死黨、宿敵" 
+                      className="w-full bg-black/40 border border-white/20 rounded-lg p-2.5 text-white outline-none focus:border-cyan-500 text-sm" 
+                      autoFocus 
+                    />
+                  </div>
+                  <div className="flex gap-4 items-center bg-black/30 p-3 rounded-xl border border-white/5 justify-between">
+                    <span className="text-xs text-slate-400 font-bold">關係線條色彩</span>
+                    <input 
+                      type="color" 
+                      value={editingEdge ? editingEdge.color : cpModal.color} 
+                      onChange={e => editingEdge ? setEditingEdge({...editingEdge, color: e.target.value}) : setCpModal({...cpModal, color: e.target.value})} 
+                      className="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0" 
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-2 border-t border-white/5">
+                {editingEdge && (
+                  <button 
+                    onClick={deleteEdge} 
+                    className="px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors mr-auto cursor-pointer font-bold"
+                  >
+                    刪除連線
+                  </button>
+                )}
+                <button 
+                  onClick={() => editingEdge ? setEditingEdge(null) : setCpModal({...cpModal, isOpen: false, source: null, target: null})} 
+                  className="px-4 py-2 text-sm text-slate-400 hover:text-white cursor-pointer"
+                >
+                  取消
+                </button>
+                <button 
+                  onClick={editingEdge ? saveEdgeEdit : confirmEdge} 
+                  className="px-6 py-2 text-sm bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold shadow-[0_0_15px_rgba(34,211,238,0.5)] cursor-pointer"
+                >
+                  {editingEdge ? '更新儲存' : '建立連線'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {editingNode && (() => {
         const charData = characters.find(c => c.id === editingNode.charId) || npcs.find(c => c.id === editingNode.charId) || defaultCharacter;
