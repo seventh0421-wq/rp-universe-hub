@@ -37,6 +37,9 @@ export const defaultCharacter: Omit<Character, 'id'> = {
   habits: '',
   catchphrase: '',
   imageUrl: '',
+  imageZoom: 100,
+  imagePosX: 50,
+  imagePosY: 20,
   isImported: false,
   isNPC: false,
   radarStats: defaultRadarStats

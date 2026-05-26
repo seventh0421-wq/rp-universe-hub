@@ -27,6 +27,7 @@ export default function App() {
   // Custom premium Toast and Confirm Modal states
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ message: string; onConfirm: () => void } | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<{ src: string; name: string } | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -509,8 +510,30 @@ export default function App() {
                           {filteredMyChars.map(char => (
                             <div key={char.id} onClick={() => openEditor(char, 'pc')} className="bg-gradient-to-br from-black/40 to-black/20 border border-white/10 hover:border-cyan-500/30 rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] group/card relative">
                               <div className="flex items-center gap-3 md:gap-4">
-                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
-                                  {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-slate-300">👤</span>}
+                                <div 
+                                  onClick={(e) => {
+                                    if (char.imageUrl) {
+                                      e.stopPropagation();
+                                      setLightboxImage({ src: char.imageUrl, name: char.name || '未命名角色' });
+                                    }
+                                  }}
+                                  className={`w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden ${char.imageUrl ? 'cursor-zoom-in hover:scale-105 transition-transform' : ''}`} 
+                                  style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}
+                                  title={char.imageUrl ? "點擊查看完整照片" : ""}
+                                >
+                                  {char.imageUrl ? (
+                                    <img 
+                                      src={char.imageUrl} 
+                                      alt="Avatar" 
+                                      className="w-full h-full object-cover" 
+                                      style={{
+                                        transform: `scale(${(char.imageZoom ?? 100) / 100})`,
+                                        objectPosition: `${char.imagePosX ?? 50}% ${char.imagePosY ?? 20}%`,
+                                        transformOrigin: 'center center'
+                                      }}
+                                      referrerPolicy="no-referrer" 
+                                    />
+                                  ) : <span className="text-slate-300">👤</span>}
                                 </div>
                                 <div className="overflow-hidden flex-1">
                                   <h3 className="font-bold text-slate-100 text-sm md:text-base truncate">{char.name || '未命名角色'}</h3>
@@ -548,8 +571,30 @@ export default function App() {
                           {filteredImportedChars.map(char => (
                             <div key={char.id} onClick={() => openEditor(char, 'friend')} className="bg-gradient-to-br from-black/40 to-black/20 border border-white/10 hover:border-emerald-500/30 rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] group/card relative">
                               <div className="flex items-center gap-3 md:gap-4">
-                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
-                                  {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-slate-300">👤</span>}
+                                <div 
+                                  onClick={(e) => {
+                                    if (char.imageUrl) {
+                                      e.stopPropagation();
+                                      setLightboxImage({ src: char.imageUrl, name: char.name || '未命名角色' });
+                                    }
+                                  }}
+                                  className={`w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden ${char.imageUrl ? 'cursor-zoom-in hover:scale-105 transition-transform' : ''}`} 
+                                  style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}
+                                  title={char.imageUrl ? "點擊查看完整照片" : ""}
+                                >
+                                  {char.imageUrl ? (
+                                    <img 
+                                      src={char.imageUrl} 
+                                      alt="Avatar" 
+                                      className="w-full h-full object-cover" 
+                                      style={{
+                                        transform: `scale(${(char.imageZoom ?? 100) / 100})`,
+                                        objectPosition: `${char.imagePosX ?? 50}% ${char.imagePosY ?? 20}%`,
+                                        transformOrigin: 'center center'
+                                      }}
+                                      referrerPolicy="no-referrer" 
+                                    />
+                                  ) : <span className="text-slate-300">👤</span>}
                                 </div>
                                 <div className="overflow-hidden flex-1">
                                   <h3 className="font-bold text-slate-100 text-sm md:text-base truncate flex items-center gap-1">
@@ -593,8 +638,30 @@ export default function App() {
                       {filteredNpcs.map(char => (
                         <div key={char.id} onClick={() => openEditor(char, 'npc')} className="bg-gradient-to-br from-black/40 to-black/20 border border-white/10 hover:border-amber-500/30 rounded-xl p-4 cursor-pointer transition-all hover:scale-[1.02] group/card relative">
                           <div className="flex items-center gap-3 md:gap-4">
-                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
-                              {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-slate-300">👤</span>}
+                            <div 
+                              onClick={(e) => {
+                                if (char.imageUrl) {
+                                  e.stopPropagation();
+                                  setLightboxImage({ src: char.imageUrl, name: char.name || '未命名角色' });
+                                }
+                              }}
+                              className={`w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center shadow-[0_0_15px_rgba(0,0,0,0.5)] shrink-0 overflow-hidden ${char.imageUrl ? 'cursor-zoom-in hover:scale-105 transition-transform' : ''}`} 
+                              style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}
+                              title={char.imageUrl ? "點擊查看完整照片" : ""}
+                            >
+                              {char.imageUrl ? (
+                                <img 
+                                  src={char.imageUrl} 
+                                  alt="Avatar" 
+                                  className="w-full h-full object-cover" 
+                                  style={{
+                                    transform: `scale(${(char.imageZoom ?? 100) / 100})`,
+                                    objectPosition: `${char.imagePosX ?? 50}% ${char.imagePosY ?? 20}%`,
+                                    transformOrigin: 'center center'
+                                  }}
+                                  referrerPolicy="no-referrer" 
+                                />
+                              ) : <span className="text-slate-300">👤</span>}
                             </div>
                             <div className="overflow-hidden flex-1">
                               <h3 className="font-bold text-slate-100 text-sm md:text-base truncate flex items-center gap-1">
@@ -732,6 +799,40 @@ export default function App() {
                 確定
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Immersive Photo Lightbox Modal */}
+      {lightboxImage && (
+        <div 
+          onClick={() => setLightboxImage(null)}
+          className="fixed inset-0 bg-black/95 backdrop-blur-md z-[250] flex flex-col items-center justify-center p-4 animate-fade-in cursor-zoom-out"
+        >
+          <button 
+            onClick={(e) => { e.stopPropagation(); setLightboxImage(null); }}
+            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white text-lg font-bold w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg border border-white/20 z-[260]"
+            title="關閉"
+          >
+            ✕
+          </button>
+          
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="max-w-full max-h-[85vh] overflow-hidden rounded-xl shadow-2xl relative border border-white/10 flex items-center justify-center bg-black/50"
+          >
+            <img 
+              src={lightboxImage.src} 
+              alt="Viewing Full Size Illustration" 
+              className="max-w-full max-h-[80vh] md:max-h-[85vh] object-contain animate-scale-up" 
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          
+          <div className="mt-4 text-center px-4">
+            <span className="text-slate-300 font-bold text-sm bg-black/60 px-4 py-1.5 rounded-full border border-white/15 backdrop-blur-md">
+              {lightboxImage.name} 的完整照片 (點擊空白處關閉)
+            </span>
           </div>
         </div>
       )}

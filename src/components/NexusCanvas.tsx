@@ -345,7 +345,19 @@ export default function NexusCanvas({
                       className={`flex items-center gap-3 p-2 md:p-3 rounded-xl border transition-all ${isOnCanvas ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-black/40 border-white/10 hover:border-cyan-500/50 cursor-pointer hover:bg-white/5'}`}
                     >
                       <div className="w-8 h-8 rounded-full bg-slate-800 border overflow-hidden shrink-0 flex items-center justify-center" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
-                        {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-xs">👤</span>}
+                        {char.imageUrl ? (
+                          <img 
+                            src={char.imageUrl} 
+                            alt="Avatar" 
+                            className="w-full h-full object-cover" 
+                            style={{ 
+                              transform: `scale(${(char.imageZoom ?? 100) / 100})`, 
+                              objectPosition: `${char.imagePosX ?? 50}% ${char.imagePosY ?? 20}%`,
+                              transformOrigin: 'center center'
+                            }} 
+                            referrerPolicy="no-referrer" 
+                          />
+                        ) : <span className="text-xs">👤</span>}
                       </div>
                       <div className="flex-1 overflow-hidden">
                         <div className="text-sm font-bold truncate text-slate-200">{char.name || '未命名'}</div>
@@ -373,7 +385,19 @@ export default function NexusCanvas({
                       className={`flex items-center gap-3 p-2 md:p-3 rounded-xl border transition-all ${isOnCanvas ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-black/40 border-white/10 hover:border-emerald-500/50 cursor-pointer hover:bg-white/5'}`}
                     >
                       <div className="w-8 h-8 rounded-full bg-slate-800 border overflow-hidden shrink-0 flex items-center justify-center" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
-                        {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-xs">👤</span>}
+                        {char.imageUrl ? (
+                          <img 
+                            src={char.imageUrl} 
+                            alt="Avatar" 
+                            className="w-full h-full object-cover" 
+                            style={{ 
+                              transform: `scale(${(char.imageZoom ?? 100) / 100})`, 
+                              objectPosition: `${char.imagePosX ?? 50}% ${char.imagePosY ?? 20}%`,
+                              transformOrigin: 'center center'
+                            }} 
+                            referrerPolicy="no-referrer" 
+                          />
+                        ) : <span className="text-xs">👤</span>}
                       </div>
                       <div className="flex-1 overflow-hidden">
                         <div className="text-sm font-bold truncate text-slate-200 flex items-center gap-1">
@@ -409,7 +433,19 @@ export default function NexusCanvas({
                       className={`flex items-center gap-3 p-2 md:p-3 rounded-xl border transition-all ${isOnCanvas ? 'bg-white/5 border-white/5 opacity-50 cursor-not-allowed' : 'bg-black/40 border-white/10 hover:border-amber-500/50 cursor-pointer hover:bg-white/5'}`}
                     >
                       <div className="w-8 h-8 rounded-full bg-slate-800 border overflow-hidden shrink-0 flex items-center justify-center" style={{ borderColor: char.themeColor, backgroundColor: `${char.themeColor}20` }}>
-                        {char.imageUrl ? <img src={char.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-xs">👤</span>}
+                        {char.imageUrl ? (
+                          <img 
+                            src={char.imageUrl} 
+                            alt="Avatar" 
+                            className="w-full h-full object-cover" 
+                            style={{ 
+                              transform: `scale(${(char.imageZoom ?? 100) / 100})`, 
+                              objectPosition: `${char.imagePosX ?? 50}% ${char.imagePosY ?? 20}%`,
+                              transformOrigin: 'center center'
+                            }} 
+                            referrerPolicy="no-referrer" 
+                          />
+                        ) : <span className="text-xs">👤</span>}
                       </div>
                       <div className="flex-1 overflow-hidden">
                         <div className="text-sm font-bold truncate text-amber-100">{char.name || '未命名'}</div>
@@ -447,7 +483,19 @@ export default function NexusCanvas({
               >
                 <div className="bg-slate-900/90 backdrop-blur-md border rounded-xl p-3 flex items-center gap-3 w-[180px] md:w-[200px] shadow-xl hover:shadow-2xl transition-shadow relative" style={{ borderColor: `${charData.themeColor}80` }}>
                   <div className="w-10 h-10 rounded-full border-2 bg-slate-800 shrink-0 overflow-hidden flex items-center justify-center" style={{ borderColor: charData.themeColor }}>
-                    {charData.imageUrl ? <img src={charData.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-slate-400">👤</span>}
+                    {charData.imageUrl ? (
+                      <img 
+                        src={charData.imageUrl} 
+                        alt="Avatar" 
+                        className="w-full h-full object-cover" 
+                        style={{ 
+                          transform: `scale(${(charData.imageZoom ?? 100) / 100})`, 
+                          objectPosition: `${charData.imagePosX ?? 50}% ${charData.imagePosY ?? 20}%`,
+                          transformOrigin: 'center center'
+                        }} 
+                        referrerPolicy="no-referrer" 
+                      />
+                    ) : <span className="text-slate-400">👤</span>}
                   </div>
                   <div className="overflow-hidden">
                     <div className="font-bold text-sm text-slate-100 truncate">{charData.name || '未命名'}</div>
@@ -537,7 +585,19 @@ export default function NexusCanvas({
             <div className="bg-slate-900 border border-amber-500/50 rounded-2xl p-6 w-[500px] shadow-2xl">
               <div className="flex items-center gap-4 mb-4 border-b border-white/10 pb-4">
                 <div className="w-12 h-12 rounded-full border-2 bg-slate-800 overflow-hidden flex items-center justify-center" style={{ borderColor: charData.themeColor }}>
-                  {charData.imageUrl ? <img src={charData.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top" referrerPolicy="no-referrer" /> : <span className="text-slate-400">👤</span>}
+                  {charData.imageUrl ? (
+                    <img 
+                      src={charData.imageUrl} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover" 
+                      style={{ 
+                        transform: `scale(${(charData.imageZoom ?? 100) / 100})`, 
+                        objectPosition: `${charData.imagePosX ?? 50}% ${charData.imagePosY ?? 20}%`,
+                        transformOrigin: 'center center'
+                      }} 
+                      referrerPolicy="no-referrer" 
+                    />
+                  ) : <span className="text-slate-400">👤</span>}
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-amber-400">{charData.name}</h3>

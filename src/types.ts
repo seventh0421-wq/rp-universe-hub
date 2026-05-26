@@ -32,6 +32,9 @@ export interface Character {
   habits: string;
   catchphrase: string;
   imageUrl: string;
+  imageZoom?: number;
+  imagePosX?: number;
+  imagePosY?: number;
   isImported?: boolean;
   isNPC?: boolean;
   radarStats: RadarStat[];

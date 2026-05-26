@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Character, AppSettings } from '../types';
 import { defaultCharacter, getRadarPoint } from '../constants';
 
@@ -12,12 +12,17 @@ export default function CharacterEditor({ initialData, onSave, onCancel }: Chara
   const [copyStatus, setCopyStatus] = useState('📋 複製文字版');
   const [activeTab, setActiveTab] = useState('basic');
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [showAdjustments, setShowAdjustments] = useState(false);
+  const [isFullImageOpen, setIsFullImageOpen] = useState(false);
 
   const [formData, setFormData] = useState<Character>(() => {
     const data = initialData || { ...defaultCharacter, id: `char_${Date.now()}` } as Character;
     return { 
       ...data, 
-      radarStats: data.radarStats || [...defaultCharacter.radarStats] 
+      radarStats: data.radarStats || [...defaultCharacter.radarStats],
+      imageZoom: data.imageZoom ?? 100,
+      imagePosX: data.imagePosX ?? 50,
+      imagePosY: data.imagePosY ?? 20
     };
   });
 
@@ -273,28 +278,129 @@ ${formData.personality || '尚未填寫...'}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[80%] h-32 blur-[80px] opacity-30 pointer-events-none" style={{ backgroundColor: formData.themeColor }}></div>
           
           <div className={`p-6 md:p-8 flex flex-col md:flex-row items-start md:items-end gap-6 border-b relative z-10 ${isDark ? 'border-white/10 bg-gradient-to-b from-black/40 to-transparent' : 'border-black/10 bg-gradient-to-b from-white/60 to-transparent'}`}>
-            <div className="relative group shrink-0">
-              <div 
-                className={`w-28 h-28 md:w-32 md:h-32 rounded-xl border-2 flex items-center justify-center overflow-hidden transition-all duration-300 backdrop-blur-md
-                  ${isDark ? 'bg-slate-800/80' : 'bg-slate-200/80'}`}
-                style={{ borderColor: formData.themeColor, boxShadow: `0 0 25px ${formData.themeColor}40` }}
-              >
-                {formData.imageUrl ? (
-                  <img src={formData.imageUrl} alt="Avatar" className="w-full h-full object-cover object-top animate-fade-in" referrerPolicy="no-referrer" />
-                ) : (
-                  <span className={`text-4xl pointer-events-none ${isDark ? 'text-slate-400/70' : 'text-slate-500/70'}`}>📸</span>
+            <div className="flex flex-col items-center gap-2 shrink-0 w-full sm:w-auto">
+              <div className="relative group shrink-0">
+                <div 
+                  onClick={() => formData.imageUrl && setIsFullImageOpen(true)}
+                  className={`w-28 h-28 md:w-32 md:h-32 rounded-xl border-2 flex items-center justify-center overflow-hidden transition-all duration-300 backdrop-blur-md relative
+                    ${isDark ? 'bg-slate-800/80 hover:border-cyan-400' : 'bg-slate-200/80 hover:border-cyan-500'} 
+                    ${formData.imageUrl ? 'cursor-zoom-in' : 'cursor-pointer'}`}
+                  style={{ 
+                    borderColor: formData.themeColor, 
+                    boxShadow: `0 0 25px ${formData.themeColor}40` 
+                  }}
+                  title={formData.imageUrl ? "點擊查看完整照片" : "上傳角色照片"}
+                >
+                  {formData.imageUrl ? (
+                    <img 
+                      src={formData.imageUrl} 
+                      alt="Avatar" 
+                      className="w-full h-full object-cover transition-transform duration-200 animate-fade-in pointer-events-none" 
+                      style={{ 
+                        transform: `scale(${(formData.imageZoom ?? 100) / 100})`, 
+                        objectPosition: `${formData.imagePosX ?? 50}% ${formData.imagePosY ?? 20}%`,
+                        transformOrigin: 'center center'
+                      }} 
+                      referrerPolicy="no-referrer" 
+                    />
+                  ) : (
+                    <label className="absolute inset-0 flex items-center justify-center cursor-pointer">
+                      <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                      <span className={`text-4xl pointer-events-none ${isDark ? 'text-slate-400/70' : 'text-slate-500/70'}`}>📸</span>
+                    </label>
+                  )}
+                </div>
+                {formData.imageUrl && (
+                  <button 
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setFormData(prev => ({ ...prev, imageUrl: '' })); }}
+                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-650 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs shadow-lg cursor-pointer z-20"
+                    title="移除影像"
+                  >✕</button>
                 )}
               </div>
-              <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs tracking-wider text-white cursor-pointer transition-opacity rounded-xl backdrop-blur-sm">
-                更換影像
-                <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
-              </label>
-              {formData.imageUrl && (
-                <button 
-                  onClick={(e) => { e.preventDefault(); setFormData(prev => ({ ...prev, imageUrl: '' })); }}
-                  className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity shadow-lg cursor-pointer"
-                  title="移除影像"
-                >✕</button>
+
+              <div className="flex items-center gap-1.5 mt-1">
+                <label className="text-[10px] md:text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded cursor-pointer transition-colors font-semibold flex items-center gap-1 shadow-sm">
+                  <span>📸</span> {formData.imageUrl ? '更換' : '上傳'}
+                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} />
+                </label>
+                
+                {formData.imageUrl && (
+                  <>
+                    <button 
+                      onClick={() => setIsFullImageOpen(true)}
+                      className="text-[10px] md:text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 border border-slate-700 rounded transition-colors font-semibold flex items-center gap-1 shadow-sm cursor-pointer"
+                    >
+                      <span>🔍</span> 查看
+                    </button>
+                    <button 
+                      onClick={() => setShowAdjustments(!showAdjustments)}
+                      className={`text-[10px] md:text-xs px-2 py-1 border rounded transition-colors font-semibold flex items-center gap-1 shadow-sm cursor-pointer
+                        ${showAdjustments 
+                          ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' 
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'}`}
+                    >
+                      <span>📐</span> 縮圖
+                    </button>
+                  </>
+                )}
+              </div>
+
+              {formData.imageUrl && showAdjustments && (
+                <div className={`mt-2 p-3 rounded-lg border text-xs space-y-2 w-full max-w-[280px] text-left animate-fade-in ${isDark ? 'bg-slate-950/90 border-white/5 text-slate-300' : 'bg-slate-50 border-black/5 text-slate-700'}`}>
+                  <div className="font-bold border-b border-white/5 pb-1 mb-1 text-cyan-400 flex items-center justify-between">
+                    <span>📐 縮圖視角微調</span>
+                    <button onClick={() => {
+                      setFormData(prev => ({ ...prev, imageZoom: 100, imagePosX: 50, imagePosY: 20 }));
+                    }} className="text-[10px] text-slate-400 hover:text-cyan-400 underline cursor-pointer">重設</button>
+                  </div>
+                  
+                  <div>
+                    <div className="flex justify-between mb-0.5 opacity-80">
+                      <span>放大比例 (Zoom)</span>
+                      <span className="font-mono text-cyan-400">{formData.imageZoom ?? 100}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="100" 
+                      max="300" 
+                      step="5"
+                      value={formData.imageZoom ?? 100} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, imageZoom: parseInt(e.target.value) }))}
+                      className="w-full accent-cyan-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between mb-0.5 opacity-80">
+                      <span>左右偏置 (X Offset)</span>
+                      <span className="font-mono text-cyan-400">{formData.imagePosX ?? 50}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="100" 
+                      value={formData.imagePosX ?? 50} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, imagePosX: parseInt(e.target.value) }))}
+                      className="w-full accent-cyan-500 cursor-pointer"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between mb-0.5 opacity-80">
+                      <span>上下偏置 (Y Offset)</span>
+                      <span className="font-mono text-cyan-400">{formData.imagePosY ?? 20}%</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min="0" 
+                      max="100" 
+                      value={formData.imagePosY ?? 20} 
+                      onChange={(e) => setFormData(prev => ({ ...prev, imagePosY: parseInt(e.target.value) }))}
+                      className="w-full accent-cyan-500 cursor-pointer"
+                    />
+                  </div>
+                </div>
               )}
             </div>
 
@@ -489,6 +595,39 @@ ${formData.personality || '尚未填寫...'}
           <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl p-6 w-80 text-center shadow-2xl">
             <p className="text-slate-200 text-sm mb-5 font-medium leading-relaxed">{alertMessage}</p>
             <button onClick={() => setAlertMessage(null)} className="px-6 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded font-bold transition-all text-xs cursor-pointer">確定</button>
+          </div>
+        </div>
+      )}
+
+      {isFullImageOpen && formData.imageUrl && (
+        <div 
+          onClick={() => setIsFullImageOpen(false)}
+          className="fixed inset-0 bg-black/95 backdrop-blur-md z-[250] flex flex-col items-center justify-center p-4 animate-fade-in"
+        >
+          <button 
+            onClick={(e) => { e.stopPropagation(); setIsFullImageOpen(false); }}
+            className="absolute top-4 right-4 bg-white/10 hover:bg-white/20 text-white text-lg font-bold w-12 h-12 rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg border border-white/20 z-[260]"
+            title="關閉"
+          >
+            ✕
+          </button>
+          
+          <div 
+            onClick={(e) => e.stopPropagation()} 
+            className="max-w-full max-h-[85vh] overflow-hidden rounded-xl shadow-2xl relative border border-white/10 flex items-center justify-center bg-black/50"
+          >
+            <img 
+              src={formData.imageUrl} 
+              alt="Full Size Avatar" 
+              className="max-w-full max-h-[80vh] md:max-h-[85vh] object-contain animate-scale-up" 
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          
+          <div className="mt-4 text-center px-4">
+            <span className="text-slate-300 font-bold text-sm bg-black/60 px-4 py-1.5 rounded-full border border-white/15 backdrop-blur-md">
+              {formData.name || '未命名角色'} 的完整照片 (點擊空白處關閉)
+            </span>
           </div>
         </div>
       )}
