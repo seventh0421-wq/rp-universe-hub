@@ -136,7 +136,7 @@ export default function App() {
           ...defaultCharacter, 
           id: `char_${Date.now()}`, 
           isImported: true,
-          radarStats: [...defaultCharacter.radarStats]
+          radarStats: defaultCharacter.radarStats.map(s => ({ name: s.name, value: s.value }))
         } as Character; 
         
         const extractField = (label: string, defaultVal = '') => {

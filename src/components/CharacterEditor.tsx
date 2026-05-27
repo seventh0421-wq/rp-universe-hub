@@ -17,9 +17,10 @@ export default function CharacterEditor({ initialData, onSave, onCancel }: Chara
 
   const [formData, setFormData] = useState<Character>(() => {
     const data = initialData || { ...defaultCharacter, id: `char_${Date.now()}` } as Character;
+    const statsSource = data.radarStats || defaultCharacter.radarStats;
     return { 
       ...data, 
-      radarStats: data.radarStats || [...defaultCharacter.radarStats],
+      radarStats: statsSource.map(s => ({ name: s.name, value: s.value })),
       imageZoom: data.imageZoom ?? 100,
       imagePosX: data.imagePosX ?? 50,
       imagePosY: data.imagePosY ?? 20
@@ -73,12 +74,15 @@ export default function CharacterEditor({ initialData, onSave, onCancel }: Chara
   };
 
   const handleStatChange = (index: number, field: 'name' | 'value', value: string | number) => {
-    const newStats = [...formData.radarStats];
-    if (field === 'name') {
-      newStats[index].name = value as string;
-    } else {
-      newStats[index].value = value as number;
-    }
+    const newStats = formData.radarStats.map((s, i) => {
+      if (i === index) {
+        return {
+          ...s,
+          [field]: value
+        };
+      }
+      return { ...s };
+    });
     setFormData(prev => ({ ...prev, radarStats: newStats }));
   };
 
