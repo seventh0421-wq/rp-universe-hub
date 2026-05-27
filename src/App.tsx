@@ -756,8 +756,18 @@ export default function App() {
         </div>
 
         <footer className="mt-10 md:mt-16 pt-6 md:pt-8 border-t border-white/10 text-center flex flex-col items-center gap-3 relative z-10">
-          <div className="text-cyan-400 font-bold tracking-widest text-[11px] md:text-xs flex items-center gap-2 bg-cyan-900/20 px-4 py-2 rounded-full border border-cyan-500/30">
-            <span>✨</span> 作者：閻羅@奧汀 <span>✨</span>
+          <div className="flex flex-wrap items-center justify-center gap-2.5">
+            <div className="text-cyan-400 font-bold tracking-widest text-[11px] md:text-xs flex items-center gap-2 bg-cyan-900/20 px-4 py-2 rounded-full border border-cyan-500/30">
+              <span>✨</span> 作者：閻羅@奧汀 <span>✨</span>
+            </div>
+            <a 
+              href="https://rp-toolbox.vercel.app/" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-amber-400 hover:text-amber-300 font-bold tracking-widest text-[11px] md:text-xs flex items-center gap-2 bg-amber-950/40 hover:bg-amber-900/40 px-4 py-2 rounded-full border border-amber-500/30 transition-all hover:scale-105 duration-200 cursor-pointer"
+            >
+              <span>🧰</span> RP工具箱
+            </a>
           </div>
           <p className="text-slate-500 text-[10px] md:text-xs max-w-3xl leading-relaxed px-4">
             【免責聲明】<br/>
